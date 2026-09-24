@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "allowJs": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "types": ["vite/client"],
+    "paths": {"@/*": ["./*"]}
+  },
+  "include": ["main.tsx", "app/page.tsx", "components/ui/tabs.tsx", "components/ui/dialog.tsx", "components/ui/button.tsx", "vite.config.ts"]
+}

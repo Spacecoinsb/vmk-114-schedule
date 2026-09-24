@@ -1,92 +1,181 @@
-"use client";
-import {useEffect,useRef,useState} from 'react';
-import {ArrowUpRight,CalendarDays,Check,ChevronLeft,ChevronRight,Download,RefreshCw,WifiOff} from 'lucide-react';
-import {Tabs,TabsList,TabsTrigger,TabsContent} from '@/components/ui/tabs';
-import {Dialog,DialogContent,DialogTitle,DialogDescription} from '@/components/ui/dialog';
-import seed from '@/public/initial.json';
+import {useEffect, useRef, useState} from 'react';
+import {ArrowUpRight, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, RefreshCw, WifiOff} from 'lucide-react';
+import {Dialog, DialogContent, DialogTitle, DialogDescription} from '@/components/ui/dialog';
+import {cleanTitle, diffSchedules, teacherRows, validSchedule, validSnapshot, verification} from '@/lib/schedule-model.mjs';
+import seed from '@/public/source.json';
 
-type Lesson={id:string;day:number;start:string;end:string;title:string;detail:string;room:string;type:string;raw:string;rule:{from?:string;dates?:string[]}|null};
-type Schedule={group:number;year:number;page:number;lessons:Lesson[];sourceDate:string;sourceUrl:string;hash:string;savedAt:string};
-type Change={id:string;day:number;start:string;before?:string;after?:string};
-const dayNames=['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье'];
-const shortDays=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
-const storageKey='vmk114-v1';
-const asset=(path:string)=>import.meta.env.BASE_URL+path.replace(/^\//,'');
-const isoMoscow=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Moscow',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-const addDays=(iso:string,n:number)=>new Date(new Date(iso+'T12:00:00Z').getTime()+n*86400000).toISOString().slice(0,10);
-const weekday=(iso:string)=>(new Date(iso+'T12:00:00Z').getUTCDay()+6)%7;
-const formatDate=(iso:string,options:Intl.DateTimeFormatOptions={day:'numeric',month:'long'})=>new Date(iso+'T12:00:00Z').toLocaleDateString('ru-RU',{...options,timeZone:'Europe/Moscow'});
-const active=(l:Lesson,date:string)=>!l.rule||((!l.rule.from||date>=l.rule.from)&&(!l.rule.dates||l.rule.dates.includes(date)));
-const typeNames:Record<string,string>={lecture:'Лекция',class:'Занятие',consultation:'Консультация',sport:'Физкультура'};
-const valid=(x:unknown):x is Schedule=>!!x&&typeof x==='object'&&'group' in x&&x.group===114&&'lessons' in x&&Array.isArray(x.lessons)&&x.lessons.length>0&&x.lessons.every(l=>typeof l.title==='string'&&typeof l.start==='string'&&typeof l.end==='string'&&Number.isInteger(l.day));
+type Lesson = {id:string; day:number; start:string; end:string; title:string; detail:string; room:string; type:string; raw:string; rule:{from?:string; dates?:string[]}|null};
+type Schedule = {group:number; year:number; page:number; lessons:Lesson[]; sourceDate:string; sourceUrl:string; hash:string; savedAt:string};
+type Snapshot = {schema:number; status:string; attemptedAt:string; checkedAt:string|null; error:string|null; date:string; url:string; hash:string; schedule:Schedule};
+type Change = {id:string; day:number; start:string; before?:string; after?:string};
+type Saved = {data:Schedule; snapshot:Snapshot|null; syncedAt:string; changes:Change[]};
+const dayNames = ['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье'];
+const shortDays = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+const typeNames:Record<string,string> = {lecture:'Лекция', class:'Занятие', consultation:'Консультация', sport:'Физкультура'};
+const storageKey = 'vmk114-v1';
+const dataCache = 'vmk114-data-v1';
+const asset = (path:string) => import.meta.env.BASE_URL + path.replace(/^\//,'');
+const pdfKey = (hash:string) => asset(`saved-schedule-${hash}.pdf`);
+const isoMoscow = () => new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Moscow',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+const addDays = (iso:string,n:number) => new Date(new Date(iso+'T12:00:00Z').getTime()+n*86400000).toISOString().slice(0,10);
+const weekday = (iso:string) => (new Date(iso+'T12:00:00Z').getUTCDay()+6)%7;
+const formatDate = (iso:string,options:Intl.DateTimeFormatOptions={day:'numeric',month:'long'}) => new Date(iso+'T12:00:00Z').toLocaleDateString('ru-RU',{...options,timeZone:'Europe/Moscow'});
+const stamp = (iso:string|null) => iso && Number.isFinite(Date.parse(iso)) ? new Date(iso).toLocaleString('ru-RU',{timeZone:'Europe/Moscow',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : 'Нет подтверждения';
+const active = (lesson:Lesson,date:string) => !lesson.rule || ((!lesson.rule.from || date>=lesson.rule.from) && (!lesson.rule.dates || lesson.rule.dates.includes(date)));
+const safeChanges = (value:unknown):Change[] => Array.isArray(value) ? value.filter(c => c && typeof c.id==='string' && Number.isInteger(c.day) && c.day>=0 && c.day<6 && typeof c.start==='string' && (c.before===undefined || typeof c.before==='string') && (c.after===undefined || typeof c.after==='string')) : [];
 
-export default function Home(){
- const [data,setData]=useState<Schedule>(seed as Schedule),current=useRef<Schedule>(seed as Schedule);
- const [today,setToday]=useState(seed.savedAt.slice(0,10)),[selected,setSelected]=useState(seed.savedAt.slice(0,10));
- const [view,setView]=useState('day'),[busy,setBusy]=useState(false),[online,setOnline]=useState(true),[message,setMessage]=useState(''),[error,setError]=useState(false);
- const [checked,setChecked]=useState(''),[offlineReady,setOfflineReady]=useState(false),[installOpen,setInstallOpen]=useState(false),[changesOpen,setChangesOpen]=useState(false),[changes,setChanges]=useState<Change[]>([]);
- const [clock,setClock]=useState(''),[pdfUrl,setPdfUrl]=useState('');
- const checking=useRef(false),lastAttempt=useRef(0);
- const monday=addDays(selected,-weekday(selected));
- const week=Array.from({length:7},(_,i)=>addDays(monday,i));
- const lessons=(date:string)=>data.lessons.filter(l=>l.day===weekday(date)&&active(l,date));
- function saveMeta(next:Schedule,when:string,changed:Change[]){try{localStorage.setItem(storageKey,JSON.stringify({data:next,checked:when,changes:changed}));}catch{throw Error('Не удалось сохранить обновление на телефоне. Освободи место и повтори проверку.');}}
- async function refresh(manual=false){
-  if(checking.current||(!manual&&Date.now()-lastAttempt.current<10*60*1000))return;
-  if(!navigator.onLine){setOnline(false);if(manual){setMessage('Нет интернета. Показано сохранённое расписание.');setError(true);}return;}
-  checking.current=true;lastAttempt.current=Date.now();setBusy(true);setError(false);if(manual)setMessage('');
-  try{
-   const before=current.current;
-   const metaResponse=await fetch(asset('/source.json')+'?t='+Date.now(),{cache:'no-store',signal:AbortSignal.timeout(20000)});
-   if(!metaResponse.ok)throw Error('Не удалось проверить расписание. Сохранённая версия доступна.');
-   const meta=await metaResponse.json() as {date:string;url:string;hash:string};
-   if(!/^[a-f0-9]{64}$/.test(meta.hash)||!/^https:\/\/cs\.msu\.ru\/sites\/cmc\/files\/.*\.pdf$/.test(meta.url))throw Error('Источник расписания имеет неизвестный формат.');
-   if(meta.hash===before.hash){const when=new Date().toISOString();const next={...before,sourceDate:meta.date,sourceUrl:meta.url};const stored=JSON.parse(localStorage.getItem(storageKey)||'null');saveMeta(next,when,stored?.changes||changes);setChecked(when);setData(next);current.current=next;if(manual)setMessage('Проверено: расписание 114 группы не изменилось.');return;}
-   const response=await fetch(asset('/latest.pdf')+'?v='+meta.hash,{cache:'no-store',signal:AbortSignal.timeout(45000)});
-   if(!response.ok)throw Error('Новый PDF пока недоступен. Сохранённая версия оставлена.');
-   const bytes=await response.arrayBuffer();
-   // These local modules are cached together with the app for offline use.
-   const pdfModule=asset('/vendor/pdf.mjs');
-   const pdfjs=await import(/* @vite-ignore */ pdfModule);
-   pdfjs.GlobalWorkerOptions.workerSrc=asset('/vendor/pdf.worker.mjs');
-   const parserModule=asset('/parser.mjs');
-   const parser=await import(/* @vite-ignore */ parserModule);
-   const parsed=await parser.parseSchedule(pdfjs,bytes.slice(0));
-   const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))).map(b=>b.toString(16).padStart(2,'0')).join('');
-   if(hash!==meta.hash)throw Error('PDF обновляется. Повтори проверку чуть позже.');
-   const next:Schedule={...parsed,sourceDate:meta.date,sourceUrl:meta.url,hash,savedAt:new Date().toISOString()};
-   if(!valid(next))throw Error('Не удалось проверить новое расписание. Сохранённая версия оставлена.');
-   const diff:Change[]=[];
-   for(const l of next.lessons){const old=before.lessons.find(x=>x.id===l.id);if(!old||old.raw!==l.raw||old.end!==l.end)diff.push({id:l.id,day:l.day,start:l.start,before:old?.raw,after:l.raw});}
-   for(const l of before.lessons)if(!next.lessons.some(x=>x.id===l.id))diff.push({id:l.id,day:l.day,start:l.start,before:l.raw});
-   const when=new Date().toISOString();
-   // Save the matching PDF first; retain the previous version on a storage failure.
-   const cache=await caches.open('vmk114-data-v1');
-   const pdfKey=asset('/saved-schedule-'+hash+'.pdf');
-   await cache.put(pdfKey,new Response(bytes,{headers:{'Content-Type':'application/pdf'}}));
-   saveMeta(next,when,diff);setData(next);current.current=next;setChecked(when);setChanges(diff);setPdfUrl(pdfKey);
-   for(const request of await cache.keys())if(new URL(request.url).pathname!==pdfKey)await cache.delete(request);
-   setMessage(diff.length?'Расписание 114 группы изменилось. Новая версия сохранена.':'PDF обновился, но пары 114 группы не изменились.');
-  }catch(e){setError(true);setMessage(e instanceof Error?e.message:'Не удалось проверить обновления. Сохранённое расписание оставлено.');}
-  finally{checking.current=false;setBusy(false);}
- }
- useEffect(()=>{
-  const date=isoMoscow();setToday(date);setSelected(date);setOnline(navigator.onLine);
-  try{const old=JSON.parse(localStorage.getItem(storageKey)||'null');if(valid(old?.data)){current.current=old.data;setData(old.data);setChecked(old.checked||'');setChanges(Array.isArray(old.changes)?old.changes:[]);}}catch{/* Keep verified initial schedule. */}
-  const tick=()=>{setClock(new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Moscow',hour:'2-digit',minute:'2-digit'}).format(new Date()));setToday(isoMoscow());};tick();
-  const timer=setInterval(tick,30000);
-  const onOnline=()=>{setOnline(true);lastAttempt.current=0;void refresh();};
-  const onOffline=()=>setOnline(false);
-  const onVisible=()=>{if(document.visibilityState==='visible'){tick();void refresh();}};
-  window.addEventListener('online',onOnline);window.addEventListener('offline',onOffline);document.addEventListener('visibilitychange',onVisible);
-   if('serviceWorker' in navigator){navigator.serviceWorker.register(asset('/sw.js'),{scope:import.meta.env.BASE_URL}).then(async()=>{await navigator.serviceWorker.ready;const cached=await caches.match(asset('/offline-ready'));setOfflineReady(!!cached);}).catch(()=>{setMessage('Не удалось подготовить офлайн-доступ. Открой приложение в Safari и попробуй ещё раз.');setError(true);});}
-   const savedPdf=asset('/saved-schedule-'+current.current.hash+'.pdf');
-  if('caches' in window)caches.open('vmk114-data-v1').then(c=>c.match(savedPdf)).then(r=>{if(r)setPdfUrl(savedPdf);}).catch(()=>{});
-  void refresh();
-  return()=>{clearInterval(timer);window.removeEventListener('online',onOnline);window.removeEventListener('offline',onOffline);document.removeEventListener('visibilitychange',onVisible);};
- // Initialization reads the stored version before the first network check.
- // eslint-disable-next-line react-hooks/exhaustive-deps
- },[]);
- function renderDay(date:string,weekly=false){const list=lessons(date);return <section className={weekly?'week-day':''} key={date} aria-label={formatDate(date)}><div className="day-title"><h2>{dayNames[weekday(date)]}{weekly&&<span> · {formatDate(date,{day:'numeric',month:'short'})}</span>}</h2><span>{list.length?`${list.length} ${list.length===1?'занятие':list.length<5?'занятия':'занятий'}`:'Без занятий'}</span></div>{list.length?list.map(l=><article className={`lesson ${date===today&&clock>=l.start&&clock<l.end?'current':''} ${changes.some(c=>c.id===l.id)?'changed':''}`} key={l.id}><div className="time"><strong>{l.start}</strong><span>{l.end}</span></div><div className="lesson-card"><div className="lesson-top"><span className="type">{typeNames[l.type]||'Занятие'}</span><div className="tags">{date===today&&clock>=l.start&&clock<l.end&&<span className="badge">Сейчас</span>}{changes.some(c=>c.id===l.id)&&<span className="badge">Изменено</span>}{l.room&&<span className="room">{l.room}</span>}</div></div><h3>{l.title}</h3>{l.detail&&<p>{l.detail}</p>}</div></article>):<div className="empty"><CalendarDays size={28}/><strong>Можно выдохнуть</strong>В расписании на этот день занятий нет.</div>}</section>;}
- return <div className="shell"><header className="topbar"><div className="brand"><div className="brandmark">114</div><div><strong>Расписание</strong><span>ВМК МГУ · 1 курс</span></div></div><button className="quiet-button" onClick={()=>refresh(true)} disabled={busy} aria-label="Проверить обновления"><RefreshCw className={busy?'spin':''}/><span className="refresh-label">{busy?'Проверяем…':'Обновить'}</span></button></header><Tabs value={view} onValueChange={setView} className="view-tabs"><div className="heading"><div><p className="eyebrow">Осенний семестр {data.year}/{data.year+1}</p><h1>{view==='day'?formatDate(selected):'Твоя неделя'}</h1></div><TabsList aria-label="Вид расписания"><TabsTrigger value="day">День</TabsTrigger><TabsTrigger value="week">Неделя</TabsTrigger></TabsList></div><div className="main-grid"><main className="schedule-surface"><div className="week-switcher"><span className="week-label">{formatDate(monday,{day:'numeric',month:'short'})} — {formatDate(week[6],{day:'numeric',month:'short'})}</span><div className="week-arrows"><button className="icon-button" aria-label="Предыдущая неделя" onClick={()=>setSelected(addDays(selected,-7))}><ChevronLeft/></button><button className="quiet-button" onClick={()=>setSelected(today)}>Сегодня</button><button className="icon-button" aria-label="Следующая неделя" onClick={()=>setSelected(addDays(selected,7))}><ChevronRight/></button></div></div><TabsContent value="day"><div className="day-strip" aria-label="Выбрать день">{week.map((d,i)=><button key={d} className={`day-button ${d===selected?'selected':''} ${d===today?'today':''}`} aria-pressed={d===selected} onClick={()=>setSelected(d)} aria-label={dayNames[i]+', '+formatDate(d)}><span>{shortDays[i]}</span><strong>{Number(d.slice(-2))}</strong></button>)}</div></TabsContent>{!online&&<div className="message">Нет интернета. Сохранённое расписание доступно.</div>}{message&&<div className={'message '+(error?'error':'')} role="status">{message}{changes.length>0&&!error&&<button onClick={()=>setChangesOpen(true)}>Что изменилось</button>}</div>}{(selected<`${data.year}-09-01`||selected>`${data.year+1}-01-31`)&&<div className="message error">Это расписание осеннего семестра {data.year}/{data.year+1}. Для выбранной даты оно может быть неактуально.</div>}<TabsContent value="day">{renderDay(selected)}</TabsContent><TabsContent value="week">{week.map(d=>renderDay(d,true))}</TabsContent></main><aside className="aside"><section className="aside-card"><h2>Актуальность расписания</h2><div className="info-row"><span>Дата на сайте ВМК</span><strong>{data.sourceDate}</strong></div><div className="info-row"><span>Последняя проверка</span><strong>{checked?new Date(checked).toLocaleString('ru-RU',{timeZone:'Europe/Moscow',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'Ещё не проверено'}</strong></div><div className="status">{!online?<WifiOff/>:offlineReady?<Check/>:<Download/>}<span>{offlineReady?'Сохранено для доступа без сети':'Подготовка офлайн-доступа…'}</span></div>{changes.length>0&&<button className="quiet-button" style={{marginTop:15}} onClick={()=>setChangesOpen(true)}>Посмотреть изменения</button>}<div className="source-links">{pdfUrl&&<a href={pdfUrl} target="_blank" rel="noreferrer">Сохранённый PDF <ArrowUpRight/></a>}<a href="https://cs.msu.ru/studies/schedule" target="_blank" rel="noreferrer">Страница ВМК <ArrowUpRight/></a></div></section><section className="aside-card install-card"><Download size={24}/><h2>Расписание под рукой</h2><p>Добавь на экран «Домой», чтобы открывать пары как приложение.</p><button className="quiet-button" onClick={()=>setInstallOpen(true)}>Как установить на iPhone</button></section></aside></div></Tabs><footer className="footer"><span>Группа 114 · Время московское</span><span>Проверяем изменения при открытии и появлении сети</span></footer><Dialog open={installOpen} onOpenChange={setInstallOpen}><DialogContent><DialogTitle>На главный экран iPhone</DialogTitle><DialogDescription>Один раз открой приложение с интернетом и дождись надписи «Сохранено для доступа без сети».</DialogDescription><ol className="install-steps"><li>Открой эту страницу в <strong>Safari</strong>.</li><li>Нажми <strong>«Поделиться»</strong> — квадрат со стрелкой вверх.</li><li>Выбери <strong>«На экран “Домой”»</strong>. Если есть переключатель «Открывать как веб-приложение», включи его.</li><li>Нажми <strong>«Добавить»</strong> и один раз открой новую иконку с интернетом.</li></ol><p className="text-sm text-muted-foreground">После сохранения расписание открывается без сети. При открытии с интернетом проверяются изменения на сайте ВМК. Пока приложение закрыто, проверки на телефоне не выполняются.</p></DialogContent></Dialog><Dialog open={changesOpen} onOpenChange={setChangesOpen}><DialogContent className="max-h-[85vh] overflow-y-auto"><DialogTitle>Что изменилось</DialogTitle><DialogDescription>Сравнение с предыдущей сохранённой версией для 114 группы.</DialogDescription>{changes.length?changes.map(c=><div className="change-item" key={c.id}><strong>{dayNames[c.day]} · {c.start} · {!c.before?'Добавлено':!c.after?'Убрано':'Изменено'}</strong>{c.before&&<p>Было: {c.before}</p>}{c.after&&<p>Стало: {c.after}</p>}</div>):<p>Изменений для 114 группы нет.</p>}</DialogContent></Dialog></div>;
+function initialState():Saved {
+  const fallback:Saved = {data:seed.schedule as Schedule, snapshot:seed as Snapshot, syncedAt:'', changes:[]};
+  try {
+    const old = JSON.parse(localStorage.getItem(storageKey)||'null');
+    if (!validSchedule(old?.data)) return fallback;
+    const snapshot = validSnapshot(old.snapshot) && old.snapshot.hash===old.data.hash ? old.snapshot : null;
+    // Prefer the newer bundled version after an app update, while retaining newer offline data.
+    if (Date.parse(snapshot?.attemptedAt || old.data.savedAt) < Date.parse(seed.attemptedAt)) {
+      const diff = diffSchedules(old.data,fallback.data) as Change[];
+      return {...fallback,changes:diff.length?diff:old.data.hash===fallback.data.hash?safeChanges(old.changes):[]};
+    }
+    return {data:old.data, snapshot, syncedAt:typeof old.syncedAt==='string'?old.syncedAt:'', changes:safeChanges(old.changes)};
+  } catch { return fallback; }
+}
+function persist(value:Saved) {
+  try { localStorage.setItem(storageKey,JSON.stringify(value)); }
+  catch { throw Error('Не удалось сохранить расписание на устройстве. Освободи место и повтори обновление.'); }
+}
+
+function Room({room,note=''}:{room:string; note?:string}) {
+  return <span className="room" aria-label={`Аудитория ${room}${note?', '+note:''}`}>{room}{note && <span className="room-note">{note}</span>}</span>;
+}
+function LessonCard({lesson,date,today,clock,changed}:{lesson:Lesson;date:string;today:string;clock:string;changed:boolean}) {
+  const now = date===today && clock>=lesson.start && clock<lesson.end;
+  const rows = teacherRows(lesson.detail) as {teacher:string;room:string;note:string}[];
+  const note = lesson.rule?.dates ? 'Только '+lesson.rule.dates.map(d=>formatDate(d,{day:'numeric',month:'short'})).join(', ') : lesson.rule?.from ? 'С '+formatDate(lesson.rule.from) : '';
+  return <article className={`lesson ${now?'current':''}`}>
+    <div className="time"><strong>{lesson.start}</strong><span>{lesson.end}</span></div>
+    <div className="lesson-card">
+      <div className="lesson-top"><span className="type">{typeNames[lesson.type]}</span><div className="tags">{now && <span className="badge">Сейчас</span>}{changed && <span className="badge">Изменено</span>}</div></div>
+      <h3>{cleanTitle(lesson)}</h3>
+      {rows.map((row,i)=><div className="teacher-row" key={i}><span>{row.teacher}</span>{(row.room || (i===0 && lesson.room)) && <Room room={row.room || lesson.room} note={row.note}/>}</div>)}
+      {!rows.length && lesson.room && <Room room={lesson.room}/>}
+      {note && <p className="rule-note">{note}</p>}
+    </div>
+  </article>;
+}
+
+export default function Home() {
+  const [saved,setSaved] = useState<Saved>(initialState);
+  const current = useRef(saved);
+  const [today,setToday] = useState(isoMoscow), [selected,setSelected] = useState(isoMoscow);
+  const [view,setView] = useState('day'), [busy,setBusy] = useState(false), [online,setOnline] = useState(navigator.onLine);
+  const [message,setMessage] = useState(''), [syncError,setSyncError] = useState(''), [offlineReady,setOfflineReady] = useState(false);
+  const [changesOpen,setChangesOpen] = useState(false), [clock,setClock] = useState(''), [pdfUrl,setPdfUrl] = useState(''), [pdfError,setPdfError] = useState('');
+  const checking = useRef(false), lastAttempt = useRef(0);
+  const data = saved.data;
+  const monday = addDays(selected,-weekday(selected));
+  const week = Array.from({length:7},(_,i)=>addDays(monday,i));
+  const status = verification(saved.snapshot);
+  const statusTitle = !online ? 'Без интернета' : busy ? 'Получаем обновления…' : syncError ? 'Не удалось получить обновления' : status.title;
+  const tone = !online ? 'offline' : syncError ? 'warn' : status.tone;
+
+  async function savePdf(hash:string) {
+    if (!('caches' in window)) throw Error('Сохранение PDF недоступно в этом браузере.');
+    const cache = await caches.open(dataCache);
+    const key = pdfKey(hash);
+    if (!await cache.match(key)) {
+      const response = await fetch(asset('latest.pdf')+'?v='+hash,{cache:'no-store',signal:AbortSignal.timeout(45000)});
+      if (!response.ok) throw Error('PDF пока недоступен. Пары уже сохранены.');
+      if (Number(response.headers.get('content-length'))>8_000_000) throw Error('PDF слишком большой.');
+      const bytes = await response.arrayBuffer();
+      if (bytes.byteLength>8_000_000) throw Error('PDF слишком большой.');
+      const actual = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))).map(b=>b.toString(16).padStart(2,'0')).join('');
+      if (actual!==hash) throw Error('PDF ещё публикуется. Пары уже сохранены; PDF загрузится при следующем обновлении.');
+      await cache.put(key,new Response(bytes,{headers:{'Content-Type':'application/pdf'}}));
+    }
+    setPdfUrl(key); setPdfError('');
+    for (const request of await cache.keys()) if (new URL(request.url).pathname!==key) await cache.delete(request);
+  }
+
+  async function refresh(manual=false) {
+    if (checking.current || (!manual && Date.now()-lastAttempt.current<10*60*1000)) return;
+    if (!navigator.onLine) {setOnline(false); return;}
+    checking.current=true; lastAttempt.current=Date.now(); setBusy(true); setSyncError(''); setMessage('');
+    try {
+      const response = await fetch(asset('source.json')+'?t='+Date.now(),{cache:'no-store',signal:AbortSignal.timeout(20000)});
+      if (!response.ok) throw Error('Сервер обновлений недоступен. Показано сохранённое расписание.');
+      const snapshot = await response.json() as Snapshot;
+      if (!validSnapshot(snapshot)) throw Error('Не удалось проверить полученное расписание. Предыдущая версия оставлена.');
+      const before = current.current;
+      if (before.snapshot && Date.parse(snapshot.attemptedAt)<Date.parse(before.snapshot.attemptedAt)) throw Error('Сервер вернул старую копию. Повтори обновление позже.');
+      const diff = diffSchedules(before.data,snapshot.schedule) as Change[];
+      const changed = before.data.hash!==snapshot.hash || diff.length>0;
+      const next:Saved = {data:snapshot.schedule,snapshot,syncedAt:new Date().toISOString(),changes:changed?diff:before.changes};
+      persist(next);
+      current.current=next; setSaved(next);
+      if (before.data.hash!==snapshot.hash) setPdfUrl('');
+      if (diff.length) setMessage('Пары обновлены и сохранены на устройстве.');
+      else if (manual) setMessage('Получена последняя опубликованная версия. Изменений в парах нет.');
+      try { await savePdf(snapshot.hash); }
+      catch (error) { setPdfError(error instanceof Error?error.message:'Не удалось сохранить PDF. Пары сохранены.'); }
+    } catch (error) { setSyncError(error instanceof Error?error.message:'Не удалось получить обновления. Сохранённая версия оставлена.'); }
+    finally { checking.current=false; setBusy(false); }
+  }
+
+  useEffect(()=>{
+    let disposed=false;
+    const tick=()=>{setClock(new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Moscow',hour:'2-digit',minute:'2-digit'}).format(new Date()));setToday(isoMoscow());};
+    tick(); const timer=setInterval(tick,30000);
+    const syncTimer=setInterval(()=>{if(document.visibilityState==='visible')void refresh();},10*60*1000);
+    const onOnline=()=>{setOnline(true);lastAttempt.current=0;void refresh();};
+    const onOffline=()=>setOnline(false);
+    const onVisible=()=>{if(document.visibilityState==='visible'){tick();void refresh();}};
+    window.addEventListener('online',onOnline);window.addEventListener('offline',onOffline);document.addEventListener('visibilitychange',onVisible);
+    async function prepareOffline() {
+      try {
+        persist(current.current);
+        if (!('serviceWorker' in navigator)) throw Error('Офлайн-доступ не поддерживается браузером.');
+        const registration=await navigator.serviceWorker.register(asset('sw.js'),{scope:import.meta.env.BASE_URL,updateViaCache:'none'});
+        await navigator.serviceWorker.ready;
+        if (!disposed) setOfflineReady(!!await caches.match(asset('offline-ready')));
+        void registration.update().catch(()=>{});
+        if (await (await caches.open(dataCache)).match(pdfKey(current.current.data.hash))) setPdfUrl(pdfKey(current.current.data.hash));
+      } catch { if(!disposed)setSyncError('Не удалось подготовить доступ без сети. Подключись к интернету и открой сайт ещё раз.'); }
+    }
+    void prepareOffline(); void refresh();
+    return()=>{disposed=true;clearInterval(timer);clearInterval(syncTimer);window.removeEventListener('online',onOnline);window.removeEventListener('offline',onOffline);document.removeEventListener('visibilitychange',onVisible);};
+  // Initialization happens before the first update; refs always hold the last saved version.
+  },[]);
+
+  function renderDay(date:string,weekly=false) {
+    const list=data.lessons.filter(l=>l.day===weekday(date) && active(l,date));
+    return <section className={weekly?'week-day':''} key={date} aria-label={formatDate(date)}>
+      <div className="day-title"><h2>{dayNames[weekday(date)]}{weekly && <span> · {formatDate(date,{day:'numeric',month:'short'})}</span>}</h2><span>{list.length?`${list.length} ${list.length===1?'пара':list.length<5?'пары':'пар'}`:'Выходной'}</span></div>
+      {list.length ? list.map(l=><LessonCard key={l.id} lesson={l} date={date} today={today} clock={clock} changed={saved.changes.some(c=>c.id===l.id)}/>) : <div className="empty"><CalendarDays size={25}/><p>На этот день пар нет</p></div>}
+    </section>;
+  }
+
+  return <div className="shell">
+    <header className="topbar"><a className="brand" href={import.meta.env.BASE_URL} aria-label="Расписание группы 114"><span className="brandmark">114</span><span><strong>Расписание</strong><small>ВМК МГУ · 1 курс</small></span></a><button className="quiet-button refresh-button" onClick={()=>refresh(true)} disabled={busy || !online}><RefreshCw size={17} className={busy?'spin':''}/>{busy?'Загрузка…':'Обновить'}</button></header>
+    <details className={`verification ${tone}`}>
+      <summary><span className="status-icon">{!online?<WifiOff size={17}/>:busy?<RefreshCw size={17} className="spin"/>:<span className="status-dot"/>}</span><span className="status-copy"><strong aria-live="polite">{statusTitle}</strong><small>{!online?'Показана сохранённая версия':`ВМК: ${stamp(saved.snapshot?.checkedAt || null)}`}</small></span><ChevronDown className="disclosure" size={17}/></summary>
+      <div className="verification-details">
+        {syncError && <p className="status-error" role="alert">{syncError}</p>}
+        {saved.snapshot?.status==='error' && <p className="status-error">{saved.snapshot.error} Сохранена последняя проверенная версия.</p>}
+        {status.tone==='warn' && saved.snapshot?.status!=='error' && <p className="status-error">Свежая проверка не подтверждена. Данные могут быть устаревшими.</p>}
+        <dl><div><dt>Успешная проверка ВМК</dt><dd>{stamp(saved.snapshot?.checkedAt || null)}</dd></div><div><dt>Последняя попытка</dt><dd>{stamp(saved.snapshot?.attemptedAt || null)}</dd></div><div><dt>Получено на устройство</dt><dd>{saved.syncedAt?stamp(saved.syncedAt):'Ещё не синхронизировано'}</dd></div><div><dt>Дата расписания на ВМК</dt><dd>{data.sourceDate}</dd></div></dl>
+        <p>Автопроверка ВМК запланирована раз в 6 часов. GitHub может задержать запуск; спустя 9 часов без успешной проверки здесь появится предупреждение. Кнопка «Обновить» получает результат последней проверки.</p>
+        <p>При изменении PDF пары обновляются автоматически. Если файл не удаётся разобрать, остаётся прежняя версия с сообщением об ошибке.</p>
+        <div className="source-links"><a href="https://cs.msu.ru/studies/schedule" target="_blank" rel="noreferrer">Сайт ВМК<ArrowUpRight size={15}/></a><a href="https://github.com/Spacecoinsb/vmk-114-schedule/actions/workflows/pages.yml" target="_blank" rel="noreferrer">История проверок<ArrowUpRight size={15}/></a></div>
+      </div>
+    </details>
+    <main>
+      <div className="heading"><div><p className="eyebrow">Осень {data.year}</p><h1>{view==='day'?formatDate(selected):'Расписание недели'}</h1></div><div className="view-switch" role="group" aria-label="Вид расписания"><button aria-pressed={view==='day'} onClick={()=>setView('day')}>День</button><button aria-pressed={view==='week'} onClick={()=>setView('week')}>Неделя</button></div></div>
+      <div className="week-switcher"><span>{formatDate(monday,{day:'numeric',month:'short'})} — {formatDate(week[6],{day:'numeric',month:'short'})}</span><div className="week-arrows"><button className="icon-button" aria-label="Предыдущая неделя" onClick={()=>setSelected(addDays(selected,-7))}><ChevronLeft/></button><button className="today-button" onClick={()=>setSelected(today)}>Сегодня</button><button className="icon-button" aria-label="Следующая неделя" onClick={()=>setSelected(addDays(selected,7))}><ChevronRight/></button></div></div>
+      {view==='day' && <nav className="day-strip" aria-label="Выбрать день">{week.map((date,i)=><button key={date} className={`day-button ${date===today?'today':''}`} aria-pressed={date===selected} onClick={()=>setSelected(date)} aria-label={dayNames[i]+', '+formatDate(date)}><span>{shortDays[i]}</span><strong>{Number(date.slice(-2))}</strong></button>)}</nav>}
+      {message && <div className="message" role="status">{message}{saved.changes.length>0 && <button onClick={()=>setChangesOpen(true)}>Что изменилось</button>}</div>}
+      {(selected<`${data.year}-09-01` || selected>`${data.year+1}-01-31`) && <div className="message warning">Это расписание осени {data.year}. Для выбранной даты оно может быть неактуально.</div>}
+      {view==='day'?renderDay(selected):week.map(date=>renderDay(date,true))}
+    </main>
+    <footer className="footer"><div className="offline-state">{offlineReady?<Check size={15}/>:<WifiOff size={15}/>}<span>{offlineReady?'Доступно без интернета':'Офлайн-доступ пока не готов'}</span></div><div className="footer-links">{pdfUrl && <a href={pdfUrl} target="_blank" rel="noreferrer">PDF<ArrowUpRight size={14}/></a>}{saved.changes.length>0 && <button onClick={()=>setChangesOpen(true)}>Изменения</button>}<span>Время московское</span></div>{pdfError && <p className="pdf-error">{pdfError}</p>}</footer>
+    <Dialog open={changesOpen} onOpenChange={setChangesOpen}><DialogContent className="changes-dialog"><DialogTitle>Что изменилось</DialogTitle><DialogDescription>Сравнение с предыдущей версией на этом устройстве.</DialogDescription>{saved.changes.map(change=><div className="change-item" key={change.id}><strong>{dayNames[change.day]} · {change.start} · {!change.before?'Добавлено':!change.after?'Убрано':'Изменено'}</strong>{change.before && <p><span>Было</span>{change.before}</p>}{change.after && <p><span>Стало</span>{change.after}</p>}</div>)}</DialogContent></Dialog>
+  </div>;
 }

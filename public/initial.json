@@ -277,8 +277,9 @@
       "raw": "Математический анализ\nБуничева А.Я. 606"
     }
   ],
-  "sourceDate": "21.09.2026",
+  "sourceDate": "24.09.2026",
   "sourceUrl": "https://cs.msu.ru/sites/cmc/files/docs/1_kurs_osen_2026_9.pdf",
   "hash": "a47b197c646aa00a5e42eff78e1be48ca11ae26e29a6bb7ca780c82c1b0a42ce",
-  "savedAt": "2026-09-24T15:44:13.464Z"
+  "savedAt": "2026-09-24T15:44:13.464Z",
+  "parserVersion": 2
 }

@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && node scripts/after-build.mjs",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "class-variance-authority": "0.7.1",

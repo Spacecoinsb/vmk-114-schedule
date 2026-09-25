@@ -53,7 +53,7 @@ try {
   assert.equal(roomStyles.length,1,'lecture halls and seminar rooms look the same');
   assert.equal(await page.locator('.room').filter({hasText:'613'}).count(),1);
   assert.equal(await page.locator('.room').filter({hasText:'682'}).count(),1);
-  await page.getByRole('button',{name:'Моя подгруппа',exact:true}).click();
+  await page.getByRole('button',{name:'Подгруппа',exact:true}).click();
   await page.getByLabel('Английский язык',{exact:true}).selectOption({label:'Перцева З.Н.'});
   await page.getByLabel('Практикум на ЭВМ',{exact:true}).selectOption({label:'Панфёров А.А.'});
   await page.getByRole('button',{name:'Сохранить выбор',exact:true}).click();
@@ -63,7 +63,7 @@ try {
   await page.reload();
   assert.equal(await page.locator('.room').filter({hasText:'613'}).count(),0);
   assert.equal(await page.locator('.room').filter({hasText:'682'}).count(),1,'subgroup choice survives restart');
-  await page.getByRole('button',{name:'Моя подгруппа',exact:true}).click();
+  await page.getByRole('button',{name:'Подгруппа',exact:true}).click();
   await page.getByLabel('Английский язык',{exact:true}).selectOption('');
   await page.getByLabel('Практикум на ЭВМ',{exact:true}).selectOption('');
   await page.getByRole('button',{name:'Сохранить выбор',exact:true}).click();
@@ -113,7 +113,7 @@ try {
   // Any first-course group can be opened; the whole table is stored offline.
   await page.getByRole('button',{name:'Группа 114, сменить'}).click();
   for(const stream of ['1 поток','2 поток','3 поток','ФИИТ']) await page.getByRole('dialog').getByText(stream,{exact:true}).waitFor();
-  await page.getByRole('dialog').getByText('108–114 · лекции в П-5').waitFor();
+  await page.getByRole('dialog').getByText('108–114',{exact:true}).waitFor();
   await page.getByRole('dialog').getByRole('button',{name:'142',exact:true}).click();
   await page.getByRole('button',{name:'Группа 142, сменить'}).waitFor();
   await page.getByRole('heading',{name:'Безопасность жизнедеятельности'}).waitFor();

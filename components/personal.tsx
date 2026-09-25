@@ -5,7 +5,7 @@ import {Dialog,DialogContent,DialogTitle,DialogDescription} from './ui/dialog';
 // name, label, scheme, swatch colours (background, lecture, now)
 export const THEMES = [
   ['night','Ночь','dark',['#15130f','#e8b923','#ff6a48']], ['graphite','Графит','dark',['#111214','#b8f34a','#ff4f8b']],
-  ['msu','МГУ','dark',['#140a0c','#d6aa4c','#8e1b2b']], ['winter','Зима','dark',['#0b1220','#6ea8ff','#ff6b9a']],
+  ['msu','МГУ','dark',['#0a0e27','#e3bd55','#2a3aa8']], ['winter','Зима','dark',['#0b1220','#6ea8ff','#ff6b9a']],
   ['autumn','Осень','dark',['#17100b','#ea7a36','#ff5e3a']], ['paper','Бумага','light',['#f3efe6','#f5c518','#ff5a36']],
   ['spring','Весна','light',['#f1f5ec','#6dbb5a','#ea4f8a']], ['summer','Лето','light',['#fff6e3','#ffae1f','#ff4e2e']],
 ] as const;

@@ -23,8 +23,11 @@ jobs:
           node-version: '24'
           cache: npm
       - name: Проверить сайт ВМК
+        id: sync
+        run: node scripts/sync-schedule.mjs
+      - name: Сохранить изменения расписания
+        if: steps.sync.outputs.commit == 'true'
         run: |
-          node scripts/sync-schedule.mjs
           if ! git diff --quiet -- public/source.json public/latest.pdf public/initial.json; then
             git config user.name 'github-actions[bot]'
             git config user.email '41898282+github-actions[bot]@users.noreply.github.com'

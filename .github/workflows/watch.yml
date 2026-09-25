@@ -1,0 +1,40 @@
+name: Проверка каждые 15 минут
+
+# GitHub's own `schedule` fires only a few times a day, so this job acts as the clock:
+# it starts the timetable check every 15 minutes for ~5.5 hours, then restarts itself.
+# workflow_dispatch sent with GITHUB_TOKEN does start new runs, so the chain keeps going.
+# The rare scheduled run below only revives the chain if it ever stops.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '3 */2 * * *'
+
+# Exactly one watcher: a newer one waits and takes over when the current one ends.
+concurrency:
+  group: watch
+  cancel-in-progress: false
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - name: Запускать проверку ВМК каждые 15 минут
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          for i in $(seq 1 22); do
+            gh workflow run pages.yml --ref main || echo "Не удалось запустить проверку, повтор через 15 минут"
+            sleep 900
+          done
+      - name: Передать эстафету следующему запуску
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh workflow run watch.yml --ref main

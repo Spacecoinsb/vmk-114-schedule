@@ -137,3 +137,46 @@ h1 { font-size:30px; line-height:1.25; letter-spacing:-1px; font-weight:650; mar
   .teacher-row { flex-wrap:wrap; }
 }
 @media (prefers-reduced-motion:reduce) { * { animation:none!important; transition:none!important; } }
+
+/* Keep navigation secondary: lessons begin within the first quarter of a phone screen. */
+.topbar { padding:17px 0 14px; }
+.brandmark { width:36px; height:36px; border-radius:11px; font-size:16px; }
+.brand { gap:9px; }
+.brand strong { font-size:14px; }
+.brand small { font-size:10px; }
+.header-actions { display:flex; align-items:center; gap:12px; }
+.vmk-link { display:inline-flex; align-items:center; gap:2px; font-size:12px; color:var(--muted-foreground); min-height:40px; }
+.refresh-button { min-width:40px; }
+.heading { padding:8px 0 13px; }
+.heading h1 { font-size:26px; }
+.eyebrow { margin:4px 0 0; font-size:12px; }
+.return-today { padding:0; margin-left:10px; background:none; border:0; color:var(--primary); font-size:12px; }
+.date-navigation { display:grid; grid-template-columns:30px repeat(7,minmax(0,1fr)) 30px; align-items:center; gap:3px; margin-bottom:18px; }
+.date-navigation>.icon-button { min-width:0; width:30px; height:44px; }
+.day-button { gap:1px; padding:5px 0 7px; border-radius:10px; }
+.day-button strong { font-size:16px; }
+.day-button.today::after { bottom:3px; }
+.weekly-navigation { grid-template-columns:30px 1fr 30px; margin-bottom:13px; }
+.verification { margin-top:22px; background:transparent; border:0; border-top:1px solid var(--border); border-radius:0; }
+.verification summary { padding:12px 0; gap:7px; }
+.verification.warn { background:transparent; }
+.verification .status-copy { flex-direction:row; flex-wrap:wrap; gap:0 8px; justify-content:flex-start; }
+.status-copy strong { font-size:11px; font-weight:500; }
+.status-copy small { font-size:10px; }
+.status-icon { width:15px; }
+.status-dot { width:5px; height:5px; }
+.verification-details { padding:0 0 13px; }
+.footer { margin-top:0; padding-top:9px; border-top:0; }
+.lesson-top { flex-wrap:wrap; }
+@media(max-width:600px) {
+  .shell { padding-left:16px; padding-right:16px; }
+  .topbar { padding-top:13px; padding-bottom:12px; }
+  .heading { padding-top:5px; padding-bottom:12px; }
+  .heading h1 { font-size:24px; }
+  .view-switch button { padding:5px 10px; min-height:34px; }
+  .date-navigation { gap:2px; grid-template-columns:23px repeat(7,minmax(0,1fr)) 23px; margin-bottom:15px; }
+  .date-navigation>.icon-button { width:23px; }
+  .weekly-navigation { grid-template-columns:23px 1fr 23px; }
+  .verification summary { padding:12px 0; }
+  .verification-details { padding:0 0 13px; }
+}

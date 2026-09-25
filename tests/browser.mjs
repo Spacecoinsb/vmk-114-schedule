@@ -42,12 +42,28 @@ try {
   assert.equal(await page.getByText('Как установить на iPhone').count(),0);
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'mobile fits viewport');
   await page.getByRole('button',{name:'День',exact:true}).click();
+  assert((await page.locator('.lesson').first().boundingBox()).y<240,'schedule is above the fold on mobile');
+  assert(await page.getByRole('link',{name:'Сайт ВМК',exact:true}).isVisible(),'source is accessible without opening details');
   await mkdir('test-results',{recursive:true});
   await page.screenshot({path:'test-results/mobile.png',fullPage:true});
   await page.locator('.verification summary').click();
   await page.getByText('Успешная проверка ВМК',{exact:true}).waitFor();
   await page.screenshot({path:'test-results/status.png',fullPage:true});
   console.log('PASS mobile, unified rooms, verification details, first-visit PDF cache');
+
+  await page.clock.setFixedTime(new Date('2026-09-25T05:50:00Z'));
+  await page.reload();
+  await page.getByText('Через 10 мин',{exact:true}).waitFor();
+  await page.clock.setFixedTime(new Date('2026-09-25T06:10:00Z'));
+  await page.reload();
+  await page.getByText('Сейчас · ещё 1 ч 20 мин',{exact:true}).waitFor();
+  await page.clock.setFixedTime(new Date('2026-09-25T07:30:00Z'));
+  await page.reload();
+  await page.getByText('Через 10 мин',{exact:true}).waitFor();
+  assert.equal(await page.locator('.lesson.current').count(),0,'finished class is no longer current');
+  await page.clock.setFixedTime(new Date());
+  await page.reload();
+  console.log('PASS next-class countdown, current-class countdown and exact end-time transition');
 
   await context.setOffline(true);
   await page.reload({waitUntil:'load'});

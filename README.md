@@ -17,14 +17,11 @@
 
 ## Проверка каждые 15 минут (бесплатно)
 
-Встроенный `schedule` в GitHub Actions ненадёжен. Бесплатный способ сделать проверку по-настоящему регулярной — внешний cron, который запускает workflow через API:
+Встроенный `schedule` в GitHub Actions ненадёжен, поэтому часы — отдельный workflow `watch.yml`. Он запускает `pages.yml` каждые 15 минут около 5,5 часа, затем сам запускает свою следующую копию (`workflow_dispatch` через `GITHUB_TOKEN` создаёт новый запуск). Одновременно работает только один watcher (`concurrency: watch`); редкий `schedule` раз в 2 часа перезапускает цепочку, если она когда-нибудь оборвётся. Для публичного репозитория минуты Actions бесплатны.
 
-1. GitHub → Settings → Developer settings → Fine-grained tokens → новый токен только для `vmk-114-schedule`, права **Actions: Read and write**.
-2. На [cron-job.org](https://cron-job.org) (бесплатно) создать задачу каждые 15 минут:
-   - URL: `https://api.github.com/repos/Spacecoinsb/vmk-114-schedule/actions/workflows/pages.yml/dispatches`
-   - Метод `POST`, тело `{"ref":"main"}`
-   - Заголовки: `Authorization: Bearer <токен>`, `Accept: application/vnd.github+json`
-3. В «История проверок» появятся запуски `workflow_dispatch` каждые 15 минут.
+Запустить впервые: Actions → «Проверка каждые 15 минут» → Run workflow (или дождаться ближайшего планового запуска).
+
+Запасной вариант — внешний cron (например, cron-job.org): `POST https://api.github.com/repos/Spacecoinsb/vmk-114-schedule/actions/workflows/pages.yml/dispatches` с телом `{"ref":"main"}` и токеном с правом Actions: Read and write.
 
 ## Интерфейс
 

@@ -4,17 +4,17 @@ import {Dialog,DialogContent,DialogTitle,DialogDescription} from './ui/dialog';
 
 // name, label, scheme, swatch colours (background, lecture, now)
 export const THEMES = [
-  ['paper','Бумага','light',['#f3efe6','#f5c518','#ff5a36']], ['autumn','Осень','light',['#f4e9dd','#d9692c','#b8321f']],
-  ['winter','Зима','light',['#eaf0f6','#4d86e8','#e0406a']], ['spring','Весна','light',['#f1f5ec','#6dbb5a','#ea4f8a']],
-  ['summer','Лето','light',['#fff6e3','#ffae1f','#ff4e2e']], ['msu','МГУ','light',['#f5efe9','#8e1b2b','#d9432f']],
   ['night','Ночь','dark',['#15130f','#e8b923','#ff6a48']], ['graphite','Графит','dark',['#111214','#b8f34a','#ff4f8b']],
+  ['msu','МГУ','dark',['#140a0c','#d6aa4c','#8e1b2b']], ['winter','Зима','dark',['#0b1220','#6ea8ff','#ff6b9a']],
+  ['autumn','Осень','dark',['#17100b','#ea7a36','#ff5e3a']], ['paper','Бумага','light',['#f3efe6','#f5c518','#ff5a36']],
+  ['spring','Весна','light',['#f1f5ec','#6dbb5a','#ea4f8a']], ['summer','Лето','light',['#fff6e3','#ffae1f','#ff4e2e']],
 ] as const;
 const themeKey='vmk114-theme';
 // Older versions stored plain "light"/"dark".
 const legacy=(value:string|null)=>value==='light'?'paper':value==='dark'?'night':value;
 export function applyTheme(choice:string){
   const name=choice==='auto'?(matchMedia('(prefers-color-scheme: dark)').matches?'night':'paper'):choice;
-  const theme=THEMES.find(t=>t[0]===name)||THEMES[0];
+  const theme=THEMES.find(t=>t[0]===name)||THEMES.find(t=>t[0]==='paper')!;
   document.documentElement.dataset.theme=theme[0];
   document.documentElement.dataset.scheme=theme[2];
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content',theme[3][0]);

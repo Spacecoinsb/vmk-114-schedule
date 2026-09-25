@@ -110,6 +110,20 @@ try {
   await page.keyboard.press('ArrowLeft'); await page.locator('h1',{hasText:'25 сентября'}).waitFor();
   console.log('PASS swipe and keyboard day navigation');
 
+  // Any first-course group can be opened; the whole table is stored offline.
+  await page.getByRole('button',{name:'Группа 114, сменить'}).click();
+  await page.getByRole('dialog').getByRole('button',{name:'142',exact:true}).click();
+  await page.getByRole('button',{name:'Группа 142, сменить'}).waitFor();
+  await page.getByRole('heading',{name:'Безопасность жизнедеятельности'}).waitFor();
+  assert.equal(await page.locator('.lesson').first().locator('.time strong').textContent(),'09:00');
+  await page.locator('.room').filter({hasText:'706'}).waitFor();
+  await page.reload();
+  await page.getByRole('button',{name:'Группа 142, сменить'}).waitFor();
+  await page.getByRole('button',{name:'Группа 142, сменить'}).click();
+  await page.getByRole('dialog').getByRole('button',{name:'114',exact:true}).click();
+  await page.locator('.room').filter({hasText:'507'}).waitFor();
+  console.log('PASS switching between all first-course groups');
+
   await page.getByRole('button',{name:'Тёмная тема',exact:true}).click();
   await page.reload();
   assert.equal(await page.locator('html').getAttribute('data-theme'),'dark');
@@ -161,14 +175,16 @@ try {
 
   // Simulate the server publishing a changed, validated timetable.
   served=structuredClone(snapshot);served.attemptedAt=served.checkedAt=new Date(Date.parse(snapshot.attemptedAt)+1000).toISOString();
-  const lesson=served.schedule.lessons.find(l=>l.id==='3-10:30');lesson.detail='Морозова В.А. 999';lesson.raw='Алгебра и геометрия\nМорозова В.А. 999';
+  const lesson=served.schedule.groups['114'].lessons.find(l=>l.id==='3-10:30');lesson.detail='Морозова В.А. 999';lesson.raw='Алгебра и геометрия\nМорозова В.А. 999';
+  served.history=[{date:'26.09.2026',previousDate:served.date,detectedAt:served.attemptedAt,pdfChanged:true,changes:{'114':[{id:'3-10:30',day:3,start:'10:30',title:'Алгебра и геометрия',before:'x',after:lesson.raw,details:['Аудитория: 615 → 999']}]}}];
   await refreshNow();
-  await page.getByText(/Расписание изменилось: Чт 10:30 Алгебра и геометрия — Аудитория: 615 → 999/).waitFor();
+  await page.getByText(/ВМК обновил расписание \(от 26\.09\.2026\): Чт 10:30 Алгебра и геометрия — Аудитория: 615 → 999/).waitFor();
   await page.getByText('Изменено: Аудитория: 615 → 999').first().waitFor();
   await page.locator('.room').filter({hasText:'999'}).waitFor();
-  assert.match(await page.evaluate(()=>JSON.parse(localStorage.getItem('vmk114-v1')).data.lessons.find(l=>l.id==='3-10:30').detail),/999/);
-  await page.getByRole('button',{name:'Что изменилось',exact:true}).click();
+  assert.match(await page.evaluate(()=>JSON.parse(localStorage.getItem('vmk-v2')).snapshot.schedule.groups['114'].lessons.find(l=>l.id==='3-10:30').detail),/999/);
+  await page.getByRole('button',{name:'Подробнее',exact:true}).click();
   await page.getByRole('dialog').getByText('Аудитория: 615 → 999').waitFor();
+  await page.getByRole('dialog').getByText('Расписание от 26.09.2026 (было от 24.09.2026)').waitFor();
   await page.keyboard.press('Escape');
   await page.getByRole('dialog').waitFor({state:'hidden'});
   console.log('PASS changed room is applied, stored and shown in differences');

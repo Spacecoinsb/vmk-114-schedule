@@ -14,16 +14,19 @@ export function ThemeButton() {
   return <button className="icon-button" aria-label={dark?'Светлая тема':'Тёмная тема'} title={dark?'Светлая тема':'Тёмная тема'} onClick={toggle}>{dark?<Sun size={17}/>:<Moon size={17}/>}</button>;
 }
 
-export type Task={id:string;date:string;subject:string;text:string;done:boolean};
+export type Task={id:string;date:string;subject:string;text:string;done:boolean;group?:string};
 const key='vmk114-homework-v1';
 function load():Task[]{try{const data=JSON.parse(localStorage.getItem(key)||'[]');return Array.isArray(data)?data.filter(t=>t&&typeof t.id==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(t.date)&&typeof t.subject==='string'&&typeof t.text==='string'&&typeof t.done==='boolean'):[];}catch{return [];}}
 const shortDate=(date:string)=>new Date(date+'T12:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
 
 // Homework lives inside the lesson row; the list dialog only jumps to it.
-export function useHomework(onPick:(date:string,lessonId:string)=>void){
-  const [tasks,setTasks]=useState<Task[]>(load),[editing,setEditing]=useState(''),[listOpen,setListOpen]=useState(false),[error,setError]=useState('');
-  function write(next:Task[]){try{localStorage.setItem(key,JSON.stringify(next));setTasks(next);setError('');return true;}catch{setError('Не удалось сохранить. Освободи место на устройстве.');return false;}}
-  function save(task:Task){const other=tasks.filter(t=>t.id!==task.id);return write(task.text.trim()?[...other,{...task,text:task.text.trim()}]:other);}
+// Tasks without a group were written for 114 before group switching existed.
+export function useHomework(group:string,onPick:(date:string,lessonId:string)=>void){
+  const [all,setTasks]=useState<Task[]>(load);
+  const tasks=all.filter(t=>(t.group||'114')===group);
+  const [editing,setEditing]=useState(''),[listOpen,setListOpen]=useState(false),[error,setError]=useState('');
+  function write(mine:Task[]){const next=[...all.filter(t=>(t.group||'114')!==group),...mine];try{localStorage.setItem(key,JSON.stringify(next));setTasks(next);setError('');return true;}catch{setError('Не удалось сохранить. Освободи место на устройстве.');return false;}}
+  function save(task:Task){const other=tasks.filter(t=>t.id!==task.id);return write(task.text.trim()?[...other,{...task,group,text:task.text.trim()}]:other);}
   function toggle(id:string){write(tasks.map(t=>t.id===id?{...t,done:!t.done}:t));}
   const pending=tasks.filter(t=>!t.done).length;
   const dialogs=<Dialog open={listOpen} onOpenChange={setListOpen}><DialogContent className="changes-dialog"><DialogTitle>Задания{pending?` · ${pending}`:''}</DialogTitle><DialogDescription>Хранятся только на этом устройстве и доступны без сети.</DialogDescription>{tasks.length?[...tasks].sort((a,b)=>Number(a.done)-Number(b.done)||a.date.localeCompare(b.date)).map(task=><div className="task-list-row" key={task.id}><button className={'task-check '+(task.done?'done':'')} aria-label={task.done?'Отметить невыполненным':'Отметить выполненным'} onClick={()=>toggle(task.id)}>{task.done&&<Check size={14}/>}</button><button className="task-open" onClick={()=>{setListOpen(false);const lessonId=task.id.slice(11);onPick(task.date,lessonId);setEditing(task.id);}}><small>{shortDate(task.date)} · {task.subject}</small><span className={task.done?'task-done':''}>{task.text}</span></button></div>):<p className="personal-hint">Нажми «+ ДЗ» у пары, чтобы записать задание.</p>}{error&&<p role="alert">{error}</p>}</DialogContent></Dialog>;

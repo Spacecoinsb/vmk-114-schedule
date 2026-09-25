@@ -38,7 +38,8 @@ button:focus-visible, a:focus-visible { outline:2px solid var(--ring); outline-o
 
 /* Header */
 .topbar { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:16px 0 12px; }
-.brand { display:flex; align-items:center; gap:10px; color:var(--foreground); }
+.brand { display:flex; align-items:center; gap:10px; color:var(--foreground); border:0; background:none; padding:0; text-align:left; }
+.brand strong svg { display:inline; vertical-align:-2px; color:var(--muted-foreground); }
 .brandmark { display:grid; place-items:center; width:38px; height:38px; border-radius:9px; background:var(--brand); color:#fff; font-size:12px; font-weight:800; letter-spacing:.3px; }
 .brand strong { display:block; font-size:15px; font-weight:650; line-height:1.2; }
 .brand small { display:block; color:var(--muted-foreground); font-size:12px; line-height:1.3; }
@@ -186,3 +187,11 @@ textarea { resize:vertical; width:100%; background:var(--background); border:1px
   .teacher-row { flex-wrap:wrap; }
 }
 @media (prefers-reduced-motion:reduce) { * { animation:none!important; transition:none!important; } }
+
+.group-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(64px,1fr)); gap:6px; margin-top:6px; }
+.group-grid button { padding:10px 0; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--foreground); font-weight:600; font-variant-numeric:tabular-nums; }
+.group-grid button[aria-pressed=true] { background:var(--brand); border-color:var(--brand); color:#fff; }
+.history-entry { border-top:1px solid var(--border); padding:12px 0 4px; }
+.history-entry h4 { margin:0; font-size:14px; font-weight:600; }
+.history-entry>small { color:var(--muted-foreground); font-size:12px; }
+.history-entry .change-item { border-top:0; padding:8px 0 0; }

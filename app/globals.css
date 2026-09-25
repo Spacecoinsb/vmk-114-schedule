@@ -11,14 +11,14 @@
   --shadow:0 1px 0 #0000000a, 0 6px 18px -12px #3b2f1a40;
 }
 [data-theme=autumn] {
-  --background:#f4e9dd; --foreground:#2b1c12; --card:#fffaf3; --muted:#eadbc9; --muted-foreground:#7a6350; --border:#e2cfba;
-  --lecture:#d9692c; --lecture-ink:#fff7ef; --lecture-soft:#f9e1cc; --now:#b8321f; --now-soft:#f8d9cf; --sport:#e5ebd0; --consult:#efe0ea;
-  --warn-bg:#f8e6c6; --warn-fg:#7a4a10;
+  --background:#17100b; --foreground:#f6eadc; --card:#221710; --muted:#302117; --muted-foreground:#b49b85; --border:#3b2a1e;
+  --lecture:#ea7a36; --lecture-ink:#1a0f08; --lecture-soft:#3a2214; --now:#ff5e3a; --now-soft:#45211a; --sport:#1f2b1b; --consult:#2e1f31;
+  --ok:#8cc26a; --warn-bg:#3a2a14; --warn-fg:#f0c37c; --danger:#ff7b64; --shadow:0 1px 0 #ffffff08, 0 10px 24px -14px #000000cc;
 }
 [data-theme=winter] {
-  --background:#eaf0f6; --foreground:#132030; --card:#ffffff; --muted:#dde6ef; --muted-foreground:#5b6c7e; --border:#d2dde8;
-  --lecture:#4d86e8; --lecture-ink:#ffffff; --lecture-soft:#dfe9fb; --now:#e0406a; --now-soft:#fbdfe7; --sport:#dcefe9; --consult:#e9e4fa;
-  --warn-bg:#fdf0d3; --warn-fg:#7a520a;
+  --background:#0b1220; --foreground:#e9f1fb; --card:#121d31; --muted:#1a2740; --muted-foreground:#8fa3bd; --border:#21314b;
+  --lecture:#6ea8ff; --lecture-ink:#08111f; --lecture-soft:#16294a; --now:#ff6b9a; --now-soft:#3a1a2b; --sport:#12302d; --consult:#221e40;
+  --ok:#5cc28c; --warn-bg:#2d2a1a; --warn-fg:#ecd27e; --danger:#ff7b8f; --shadow:0 1px 0 #ffffff08, 0 10px 24px -14px #000000cc;
 }
 [data-theme=spring] {
   --background:#f1f5ec; --foreground:#1b2616; --card:#fcfff8; --muted:#e1e9d6; --muted-foreground:#63705a; --border:#d6e0c8;
@@ -31,9 +31,10 @@
   --warn-bg:#ffe9c2; --warn-fg:#7a4b06;
 }
 [data-theme=msu] {
-  --background:#f5efe9; --foreground:#2a1315; --card:#fffcfa; --muted:#ecdfd7; --muted-foreground:#7a5f5f; --border:#e5d3c9;
-  --lecture:#8e1b2b; --lecture-ink:#fff5f5; --lecture-soft:#f5dfe1; --now:#d9432f; --now-soft:#fadcd5; --sport:#e2eee0; --consult:#ebe3f2;
-  --warn-bg:#f9ebd0; --warn-fg:#76500f;
+  --background:#140a0c; --foreground:#f7ede3; --card:#211215; --muted:#2e1a1e; --muted-foreground:#bfa58f; --border:#3b2327;
+  --lecture:#d6aa4c; --lecture-ink:#1a0c0e; --lecture-soft:#3a2716; --now:#e24a3b; --now-soft:#40181a; --sport:#1c2a20; --consult:#2c1f33;
+  --ok:#7cc48c; --warn-bg:#382815; --warn-fg:#efc97f; --danger:#ff7b64; --shadow:0 1px 0 #ffffff08, 0 10px 24px -14px #000000cc;
+  --mark-bg:#8e1b2b; --mark-fg:#f2d27e;
 }
 [data-theme=night] {
   --background:#15130f; --foreground:#f3eee3; --card:#1f1c17; --muted:#2b2720; --muted-foreground:#a79f90; --border:#353027;
@@ -51,6 +52,7 @@
   --primary:var(--foreground); --primary-foreground:var(--background); --accent:var(--muted); --accent-foreground:var(--foreground);
   --input:var(--border); --ring:var(--now); --radius:1rem; --brand:var(--foreground); --warn:var(--warn-fg);
 }
+:root:not([data-theme=msu]) { --mark-bg:var(--lecture); --mark-fg:var(--lecture-ink); }
 @theme inline {
   --color-background:var(--background); --color-foreground:var(--foreground); --color-card:var(--card);
   --color-card-foreground:var(--card-foreground); --color-popover:var(--popover); --color-popover-foreground:var(--popover-foreground);
@@ -72,7 +74,7 @@ button:focus-visible, a:focus-visible { outline:2px solid var(--ring); outline-o
 /* Header */
 .topbar { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 2px 4px; }
 .brand { display:flex; align-items:center; gap:10px; color:var(--foreground); border:0; background:none; padding:0; text-align:left; }
-.brandmark { display:grid; place-items:center; width:38px; height:38px; border-radius:12px; background:var(--lecture); color:var(--lecture-ink); font-size:14px; font-weight:800; letter-spacing:-.3px; }
+.brandmark { display:grid; place-items:center; width:38px; height:38px; border-radius:12px; background:var(--mark-bg); color:var(--mark-fg); font-size:14px; font-weight:800; letter-spacing:-.3px; }
 .brand strong { display:flex; align-items:center; gap:3px; font-size:16px; font-weight:750; line-height:1.15; letter-spacing:-.2px; }
 .brand strong svg { color:var(--muted-foreground); }
 .brand small { display:block; color:var(--muted-foreground); font-size:12px; line-height:1.3; }
@@ -207,8 +209,13 @@ button.room:hover { background:color-mix(in srgb,currentColor 8%,transparent); }
 .history-entry h4 { margin:0; font-size:15px; font-weight:750; }
 .history-entry>small { color:var(--muted-foreground); font-size:12.5px; }
 .history-entry .change-item { border-top:0; padding:8px 0 0; }
-.group-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(64px,1fr)); gap:8px; margin-top:6px; }
-.group-grid button { padding:12px 0; border:0; border-radius:14px; background:var(--muted); color:var(--foreground); font-size:16px; font-weight:750; font-variant-numeric:tabular-nums; }
+.stream { padding:12px 0 4px; border-top:1px solid var(--border); }
+.stream:first-of-type { border-top:0; }
+.stream-head { display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-bottom:8px; }
+.stream-head strong { font-size:15px; font-weight:800; }
+.stream-head span { font-size:12.5px; color:var(--muted-foreground); }
+.group-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+.group-grid button { padding:10px 0; border:0; border-radius:12px; background:var(--muted); color:var(--foreground); font-size:16px; font-weight:750; font-variant-numeric:tabular-nums; }
 .group-grid button[aria-pressed=true] { background:var(--lecture); color:var(--lecture-ink); }
 .task-label { display:block; font-size:13px; margin-bottom:8px; }
 textarea { font:inherit; }
@@ -292,3 +299,30 @@ textarea { font:inherit; }
 .swatch.auto { background:linear-gradient(135deg,#f3efe6 50%,#15130f 50%); }
 .heading .view-switch { padding:2px; }
 .heading .view-switch button { padding:4px 10px; font-size:12.5px; }
+
+/* A day with few classes: cards grow to use the screen instead of leaving a gap below. */
+.shell>main { display:flex; flex-direction:column; }
+.slide { flex:1; display:flex; flex-direction:column; }
+.slide>section.day { flex:1; display:flex; flex-direction:column; }
+.list.fill { flex:1; }
+.list.fill .lesson { flex:1 1 auto; display:flex; flex-direction:column; justify-content:center; }
+.list.fill.compact .lesson { max-height:150px; }
+.list.comfy { gap:9px; }
+.list.comfy .lesson { max-height:180px; padding:12px 15px 13px; border-radius:18px; }
+.list.comfy .lesson h3 { font-size:19px; margin-top:3px; }
+.list.comfy .teacher-row { font-size:14px; margin-top:5px; }
+.list.comfy .room { font-size:15.5px; padding:1px 9px; }
+.list.comfy .range { font-size:14.5px; }
+.list.roomy { gap:12px; }
+.list.roomy .lesson { max-height:230px; padding:16px 18px 17px; border-radius:22px; }
+.list.roomy .lesson h3 { font-size:22px; margin-top:6px; }
+.list.roomy .teacher-row { font-size:15px; margin-top:8px; }
+.list.roomy .room { font-size:17px; padding:2px 11px; border-radius:10px; }
+.list.roomy .range { font-size:15.5px; }
+
+/* МГУ theme: the Main Building on the horizon and a burgundy glow. */
+.topbar { position:relative; }
+.skyline { display:none; }
+[data-theme=msu] .skyline { display:block; position:absolute; z-index:0; left:0; right:0; bottom:-2px; width:100%; height:58px; fill:var(--lecture); opacity:.15; pointer-events:none; }
+[data-theme=msu] body { background:radial-gradient(130% 55% at 50% -12%, #4a1220 0%, var(--background) 62%) fixed, var(--background); }
+[data-theme=msu] .topbar > :not(.skyline) { position:relative; z-index:1; }

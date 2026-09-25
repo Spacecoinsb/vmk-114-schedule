@@ -54,6 +54,19 @@ function initialState():Saved {
     return {snapshot:old.snapshot, syncedAt:typeof old.syncedAt==='string'?old.syncedAt:''};
   } catch { return fallback; }
 }
+// Groups that share lectures form a stream; in the PDF each stream has its own page.
+function streams(table:Table) {
+  const pages = new Map<number,string[]>();
+  for (const [name, g] of Object.entries(table.groups)) pages.set(g.page, [...(pages.get(g.page) || []), name]);
+  return [...pages].sort((a, b) => a[0]-b[0]).map(([page, groups], i, all) => {
+    groups.sort();
+    const counts = new Map<string,number>();
+    for (const l of table.groups[groups[0]].lessons) if (l.type==='lecture' && l.room) counts.set(l.room, (counts.get(l.room) || 0)+1);
+    const hall = [...counts].sort((a, b) => b[1]-a[1])[0]?.[0];
+    const fiit = groups.every(g => g >= '140');
+    return {page, groups, hall, title:fiit ? 'ФИИТ' : `${i+1} поток`, range:`${groups[0]}–${groups.at(-1)}`, total:all.length};
+  });
+}
 function loadGroup() { try { return localStorage.getItem(groupKey) || DEFAULT_GROUP; } catch { return DEFAULT_GROUP; } }
 function describeUpdate(entry:HistoryEntry, group:string) {
   const list = entry.changes[group] || [];
@@ -63,6 +76,16 @@ function describeUpdate(entry:HistoryEntry, group:string) {
 function persist(value:Saved) {
   try { localStorage.setItem(storageKey,JSON.stringify(value)); }
   catch { throw Error('Не удалось сохранить расписание на устройстве. Освободи место и повтори обновление.'); }
+}
+
+// Silhouette of the MSU Main Building, drawn for the "МГУ" theme.
+function Skyline() {
+  const r = (x:number, y:number, w:number, h:number) => <rect x={x} y={y} width={w} height={h}/>;
+  return <svg className="skyline" viewBox="0 0 400 120" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
+    <circle cx="200" cy="4" r="3"/>{r(199,6,2,17)}{r(195,22,10,12)}{r(190,34,20,14)}{r(184,48,32,14)}{r(176,62,48,16)}{r(150,78,100,42)}
+    {r(125,90,25,30)}{r(250,90,25,30)}{r(108,70,16,50)}{r(276,70,16,50)}{r(111,60,10,10)}{r(279,60,10,10)}{r(115,50,2,10)}{r(283,50,2,10)}
+    {r(60,96,48,24)}{r(292,96,48,24)}{r(20,106,40,14)}{r(340,106,40,14)}
+  </svg>;
 }
 
 // Tapping a room opens it on the campus map.
@@ -253,14 +276,16 @@ export default function Home() {
   }
   function renderDay(date:string,weekly=false) {
     const list=data.lessons.filter(l=>isDisplayedLesson(l) && l.day===weekday(date) && active(l,date)).sort((a,b)=>a.start.localeCompare(b.start));
-    return <section className={weekly?'week-day':''} key={date} aria-label={formatDate(date)}>
+    const density = weekly ? 'compact' : list.length<=2 ? 'roomy' : list.length===3 ? 'comfy' : 'compact';
+    return <section className={weekly?'week-day':'day'} key={date} aria-label={formatDate(date)}>
       {weekly && <div className="day-title"><h2>{dayNames[weekday(date)]}<span> · {formatDate(date,{day:'numeric',month:'short'})}</span></h2><span>{lessonCount(list.length)}</span></div>}
-      {list.length ? <div className="list">{list.map(l=><LessonCard key={l.id} lesson={l} date={date} today={today} clock={clock} change={changeFor(l.id)} next={date===today && l.id===nextId} hw={editorFor(date,l)} preferredTeacher={subgroups.selected[cleanTitle(l)]} stacked={list.filter(o=>o.id.split('-').slice(0,2).join('-')===l.id.split('-').slice(0,2).join('-')).length>1}/>)}</div> : <div className="empty"><CalendarDays size={22}/><p>Пар нет — отдыхай</p></div>}
+      {list.length ? <div className={`list ${density} ${weekly?'':'fill'}`}>{list.map(l=><LessonCard key={l.id} lesson={l} date={date} today={today} clock={clock} change={changeFor(l.id)} next={date===today && l.id===nextId} hw={editorFor(date,l)} preferredTeacher={subgroups.selected[cleanTitle(l)]} stacked={list.filter(o=>o.id.split('-').slice(0,2).join('-')===l.id.split('-').slice(0,2).join('-')).length>1}/>)}</div> : <div className="empty"><CalendarDays size={22}/><p>Пар нет — отдыхай</p></div>}
     </section>;
   }
 
   return <OpenRoom.Provider value={openRoom}><div className="shell">
     <header className="topbar">
+      <Skyline/>
       <button className="brand" onClick={()=>setGroupsOpen(true)} aria-label={`Группа ${groupName}, сменить`}><span className="brandmark">ВМК</span><span><strong>{groupName} группа <ChevronDown size={14}/></strong><small>Расписание · МГУ</small></span></button>
       <div className="header-actions">
         <a className="vmk-link" href="https://cs.msu.ru/studies/schedule" target="_blank" rel="noreferrer">Сайт ВМК<ArrowUpRight size={14}/></a>
@@ -338,8 +363,11 @@ export default function Home() {
           : <p className="personal-hint">{entry.pdfChanged?'PDF обновлён, но у этой группы ничего не поменялось.':'Поменялась только дата на сайте ВМК, сам PDF тот же.'}</p>}
       </section>) : <p className="personal-hint">С момента запуска проверки ВМК расписание не менял. Сейчас на сайте версия от {data.sourceDate}.</p>}
     </DialogContent></Dialog>
-    <Dialog open={groupsOpen} onOpenChange={setGroupsOpen}><DialogContent className="changes-dialog"><DialogTitle>Группа</DialogTitle><DialogDescription>Все группы первого курса из PDF ВМК, доступны и без интернета.</DialogDescription>
-      <div className="group-grid">{Object.keys(table.groups).sort().map(name=><button key={name} aria-pressed={name===groupName} onClick={()=>setGroup(name)}>{name}</button>)}</div>
+    <Dialog open={groupsOpen} onOpenChange={setGroupsOpen}><DialogContent className="changes-dialog"><DialogTitle>Группа</DialogTitle><DialogDescription>Первый курс ВМК по потокам. Доступно и без интернета.</DialogDescription>
+      {streams(table).map(stream=><section className="stream" key={stream.page}>
+        <div className="stream-head"><strong>{stream.title}</strong><span>{stream.range}{stream.hall && ` · лекции в ${stream.hall}`}</span></div>
+        <div className="group-grid">{stream.groups.map(name=><button key={name} aria-pressed={name===groupName} onClick={()=>setGroup(name)}>{name}</button>)}</div>
+      </section>)}
     </DialogContent></Dialog>
   </div></OpenRoom.Provider>;
 }

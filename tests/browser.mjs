@@ -112,6 +112,8 @@ try {
 
   // Any first-course group can be opened; the whole table is stored offline.
   await page.getByRole('button',{name:'Группа 114, сменить'}).click();
+  for(const stream of ['1 поток','2 поток','3 поток','ФИИТ']) await page.getByRole('dialog').getByText(stream,{exact:true}).waitFor();
+  await page.getByRole('dialog').getByText('108–114 · лекции в П-5').waitFor();
   await page.getByRole('dialog').getByRole('button',{name:'142',exact:true}).click();
   await page.getByRole('button',{name:'Группа 142, сменить'}).waitFor();
   await page.getByRole('heading',{name:'Безопасность жизнедеятельности'}).waitFor();

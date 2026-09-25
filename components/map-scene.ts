@@ -23,15 +23,17 @@ function palette() {
   // Rooms stand out clearly from the floor slab; each kind keeps a recognisable hue.
   const room = dark ? col(v('--card')).lerp(col(v('--foreground')), .2) : col(v('--card'));
   const tint = (hue:string, amount:number) => col(hue).lerp(room, 1-amount).getHex();
-  return {slab:(dark ? col(v('--background')) : col(v('--muted'))).getHex(), room:room.getHex(),
+  return {slab:(dark ? col(v('--background')).lerp(col(v('--foreground')), .1) : col(v('--muted'))).getHex(), room:room.getHex(),
     lecture:tint(v('--lecture'), dark ? .7 : .55), machine:tint('#34c27a', .5), wc:tint('#7f9bd6', .45), food:tint('#ff9f43', .55),
-    place:tint('#a58bff', .45), stair:tint(v('--now'), .6), edge:col(v('--foreground')).lerp(room, dark ? .45 : .6).getHex(),
+    place:tint('#a58bff', .45), lift:tint('#8fa3b8', .5), stair:tint(v('--now'), .6), edge:col(v('--foreground')).lerp(room, dark ? .45 : .6).getHex(),
     text:v('--foreground'), textSoft:v('--muted-foreground'), ghost:col(v('--border')).getHex(), now:col(v('--now')).getHex()};
 }
 // Dark or light label depending on what it sits on.
-const inkFor = (hex:number) => { const c = new THREE.Color(hex); return 0.2126*c.r+0.7152*c.g+0.0722*c.b > 0.45 ? '#16140f' : '#f5f2ea'; };
+const lum = (c:THREE.Color) => { const l = (v:number) => v <= 0.04045 ? v/12.92 : ((v+0.055)/1.055)**2.4; const s = c.clone().convertLinearToSRGB(); return 0.2126*l(s.r)+0.7152*l(s.g)+0.0722*l(s.b); };
+// Pick the ink with the higher WCAG contrast against the fill.
+const inkFor = (hex:number) => { const L = lum(new THREE.Color(hex)), dark = (L+0.05)/0.06, light = 1.05/(L+0.05); return dark >= light ? '#16140f' : '#f5f2ea'; };
 const kindOf = (id:string) => /^П-/.test(id) ? 'lecture' : /^МЗ-/.test(id) ? 'machine' : 'room';
-const ICON:Record<string,string> = {wc:'WC', food:'🍽', place:'★'};
+const ICON:Record<string,string> = {wc:'WC', food:'🍽', place:'★', lift:'⇅'};
 
 export class MapScene {
   private renderer:THREE.WebGLRenderer; private scene = new THREE.Scene();
@@ -116,7 +118,7 @@ export class MapScene {
     for (const r of f.rooms) text(r.id, r.box, (r.box[0]+r.box[2])/2, (r.box[1]+r.box[3])/2, 800, inkFor(this.colors[kindOf(r.id) as 'room']));
     for (const s of f.stairs) text(s.id, s.box, s.x, s.y, 800, inkFor(this.colors.stair));
     for (const p of f.places) {
-      const short = p.kind === 'wc' ? p.name.replace('Туалет ', 'WC ') : p.name.replace(/\s*\(.*\)/, '').replace(/^Столовая /, '');
+      const short = p.kind === 'wc' ? p.name.replace('Туалет ', 'WC ') : p.kind === 'lift' ? '⇅' : p.name.replace(/\s*\(.*\)/, '').replace(/^Столовая /, '');
       text(p.box ? short : ICON[p.kind] ?? '•', p.box ?? null, p.box ? (p.box[0]+p.box[2])/2 : p.x, p.box ? (p.box[1]+p.box[3])/2 : p.y, 700, p.box ? inkFor(this.colors[p.kind as 'food'] ?? this.colors.place) : this.colors.text);
     }
     const tex = new THREE.CanvasTexture(canvas); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;

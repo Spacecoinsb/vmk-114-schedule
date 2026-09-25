@@ -6,7 +6,7 @@ import {FLOORS, WING, POINTS, nearest, pointByKey, route, search} from '@/lib/ma
 type Point = {key:string; floor:number; id:string; kind:string; name:string; x:number; y:number; box?:number[]; note?:string};
 type Leg = {floor:number; points:number[][]};
 type Route = {from:Point; to:Point; length:number; legs:Leg[]; stair:string|null; steps:string[]};
-const kindLabel:Record<string,string> = {room:'Аудитория', wc:'Туалет', food:'Еда', place:'Место'};
+const kindLabel:Record<string,string> = {room:'Аудитория', wc:'Туалет', food:'Еда', place:'Место', lift:'Лифт'};
 
 // Hosts the three.js model; the scene is created once and updated through props.
 function SceneView({mode, floor, lowest, legs, marks, focus, onPick}:{mode:Mode; floor:number; lowest:number; legs:Leg[]; marks:Mark[]; focus:{floor:number; x:number; y:number; n:number}|null; onPick:(floor:number, x:number, y:number)=>void}) {

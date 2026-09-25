@@ -10,8 +10,8 @@ manifest.theme_color='#f6f7f9'; manifest.background_color='#f6f7f9';
 for(const icon of manifest.icons)icon.src=base+icon.src.replace(/^\//,'');
 await writeFile(manifestPath,JSON.stringify(manifest));
 async function walk(dir){const found=[];for(const item of await readdir(dir,{withFileTypes:true})){const name=path.join(dir,item.name);if(item.isDirectory())found.push(...await walk(name));else found.push(path.relative(root,name).replaceAll('\\','/'));}return found;}
-// PDF parsing now runs on GitHub; the phone only needs the small app and saved timetable.
-const paths=(await walk(root)).filter(p=>!['sw.js','precache.json','latest.pdf','source.json','parser.mjs'].includes(p)&&!p.startsWith('vendor/')).sort();
+// PDF parsing runs on GitHub; pdf.js is cached only for the in-app PDF viewer.
+const paths=(await walk(root)).filter(p=>!['sw.js','precache.json','latest.pdf','source.json','parser.mjs'].includes(p)&&!(p.startsWith('vendor/')&&!/^vendor\/pdf(\.worker)?\.mjs$/.test(p))).sort();
 const sw=await readFile(path.join(root,'sw.js'),'utf8');
 const hash=createHash('sha256').update(sw);
 for(const name of paths){hash.update(name);hash.update(await readFile(path.join(root,name)));}

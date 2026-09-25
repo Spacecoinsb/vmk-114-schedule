@@ -1,5 +1,5 @@
 import {useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode} from 'react';
-import {ArrowDownUp, LocateFixed, Search, Utensils, X} from 'lucide-react';
+import {ArrowDownUp, LocateFixed, Maximize2, Minus, Plus, Search, Utensils, X} from 'lucide-react';
 import {MapScene, type Mark, type Mode} from '@/components/map-scene';
 import {FLOORS, WING, POINTS, nearest, pointByKey, route, search} from '@/lib/map-route.mjs';
 
@@ -22,14 +22,19 @@ function SceneView({mode, floor, lowest, legs, marks, focus, onPick}:{mode:Mode;
     theme.observe(document.documentElement, {attributes:true, attributeFilter:['data-theme','data-scheme']});
     return () => { theme.disconnect(); s.dispose(); scene.current = null; };
   }, []);
-  useEffect(() => { scene.current?.setView(mode, floor, lowest); }, [mode, floor, lowest]);
+  useEffect(() => { scene.current?.setView(mode, floor, lowest); if (focus?.floor===floor) scene.current?.focus(floor,focus.x,focus.y); }, [mode, floor, lowest]);
   useEffect(() => { scene.current?.setRoute(legs, marks); }, [legs, marks]);
   useEffect(() => { if (focus) scene.current?.focus(focus.floor, focus.x, focus.y); }, [focus]);
   // Without WebGL the original floor plan is still available.
-  if (failed) { const f = FLOORS.find(q => q.floor === floor)!; return <div className="scene-view fallback"><img src={import.meta.env.BASE_URL + f.image} alt={`План ${floor} этажа`}/><p className="scene-hint">3D недоступно на этом устройстве — показан исходный план</p></div>; }
+  if (failed) { const f = FLOORS.find(q => q.floor === floor)!; return <div className="scene-view fallback"><img src={import.meta.env.BASE_URL + f.image} alt={`План ${floor} этажа`}/><p className="scene-hint">Интерактивная карта недоступна — показан исходный план</p></div>; }
   return <div className="scene-view" ref={host}>
-    {mode!=='3d' && <div className="compass"><span>← Север</span><span>Юг →</span></div>}
-    <p className="scene-hint">{mode==='3d' ? 'Одним пальцем — вращать, двумя — двигать и приближать' : 'Двигай пальцем, приближай двумя'}</p>
+    <div className="map-orientation"><strong>{floor} этаж</strong><span>Север ← · → Юг</span></div>
+    <div className="map-zoom" role="group" aria-label="Масштаб карты">
+      <button aria-label="Приблизить карту" title="Приблизить" onClick={()=>scene.current?.zoom(1.6)}><Plus size={18}/></button>
+      <button aria-label="Отдалить карту" title="Отдалить" onClick={()=>scene.current?.zoom(1/1.6)}><Minus size={18}/></button>
+      <button aria-label="Показать весь этаж" title="Весь этаж" onClick={()=>scene.current?.reset()}><Maximize2 size={17}/></button>
+    </div>
+    <p className="scene-hint">{mode==='3d' ? 'Вращай пальцем · приближай двумя' : 'Нажми на кабинет · двигай и приближай план'}</p>
   </div>;
 }
 
@@ -40,7 +45,7 @@ function PointChip({label, point, onClear}:{label:string; point:Point|null; onCl
 const area = (p:Point) => p.box ? (p.box[2]-p.box[0])*(p.box[3]-p.box[1]) : 1e9;
 
 export function CampusMap({target, fromHint, children}:{target:string|null; fromHint:string|null; children?:ReactNode}) {
-  const [floor, setFloor] = useState(6), [mode, setMode] = useState<Mode>('3d');
+  const [floor, setFloor] = useState(6), [mode, setMode] = useState<Mode>('schema');
   const [query, setQuery] = useState(''), [selected, setSelected] = useState<string|null>(null);
   const [fromKey, setFrom] = useState<string|null>(null), [toKey, setTo] = useState<string|null>(null), [special, setSpecial] = useState<Route|null>(null);
   const results = useMemo(() => search(query) as Point[], [query]);
@@ -56,7 +61,8 @@ export function CampusMap({target, fromHint, children}:{target:string|null; from
     const inside = here.filter(p => p.box && p.box[0] <= x && x <= p.box[2] && p.box[1] <= y && y <= p.box[3]).sort((a, b) => area(a) - area(b))[0];
     const close = here.map(p => ({p, d:Math.hypot(p.x-x, p.y-y)})).sort((a, b) => a.d-b.d)[0];
     const hit = inside ?? (close && close.d < 30 ? close.p : null);
-    if (hit) { setSelected(hit.key); }
+    if (hit) show(hit.key);
+    else setFocus({floor:f, x, y, n:Date.now()});
   }
   // Opened from a lesson: select its room and, if the previous class is known, route from there.
   useEffect(() => {
@@ -86,18 +92,19 @@ export function CampusMap({target, fromHint, children}:{target:string|null; from
     </div>
 
     <div className="map-toolbar">
-      <div className="floor-switch" role="group" aria-label="Этаж">{FLOORS.map(f=><button key={f.floor} aria-pressed={floor===f.floor} className={legs.some(l=>l.floor===f.floor)?'has-route':''} onClick={()=>setFloor(f.floor)}>{f.floor}</button>)}</div>
+      <div className="floor-switch" role="group" aria-label="Этаж">{FLOORS.map(f=><button key={f.floor} aria-pressed={floor===f.floor} className={legs.some(l=>l.floor===f.floor)?'has-route':''} onClick={()=>{setFloor(f.floor); if(sel?.floor!==f.floor) setSelected(null); setFocus(null);}}>{f.floor}</button>)}</div>
       <div className="view-switch map-modes" role="group" aria-label="Вид карты">{([['schema','Схема'],['3d','3D'],['pdf','PDF']] as const).map(([m,label])=><button key={m} aria-pressed={mode===m} onClick={()=>setMode(m)}>{label}</button>)}</div>
     </div>
-    <SceneView mode={mode} floor={floor} lowest={lowest} legs={legs} marks={marks} focus={focus} onPick={pickAt}/>
+    <div className="map-stage"><SceneView mode={mode} floor={floor} lowest={lowest} legs={legs} marks={marks} focus={focus} onPick={pickAt}/>
     {sel && sel.key!==fromKey && sel.key!==toKey && <div className="map-card">
-      <div><small>{kindLabel[sel.kind]} · {sel.floor} этаж · {sel.x<0.5?'северная':'южная'} часть</small><strong>{sel.name}</strong>{sel.note && <p>{sel.note}</p>}</div>
+      <div><small>{kindLabel[sel.kind]} · {sel.floor} этаж · {WING(sel.x)}</small><strong>{sel.name}</strong>{sel.note && <p>{sel.note}</p>}</div>
       <div className="map-card-actions">
         <button className="small-primary" onClick={()=>{setSpecial(null);setTo(sel.key);setSelected(null);}}>Сюда</button>
         <button className="text-button" onClick={()=>{setSpecial(null);setFrom(sel.key);setSelected(null);}}>Отсюда</button>
         <button className="icon-button" aria-label="Закрыть" onClick={()=>setSelected(null)}><X size={16}/></button>
       </div>
     </div>}
+    </div>
 
     {(from || to) && <div className="route-box">
       <div className="route-points">
@@ -111,8 +118,8 @@ export function CampusMap({target, fromHint, children}:{target:string|null; from
 
     <div className="map-quick">
       {children}
-      <button disabled={!(selected||fromKey||toKey)} onClick={()=>quick('wc')}><LocateFixed size={14}/>Ближайший туалет</button>
-      <button disabled={!(selected||fromKey||toKey)} onClick={()=>quick('food')}><Utensils size={14}/>Где поесть</button>
+      {(selected||fromKey||toKey) && <><button onClick={()=>quick('wc')}><LocateFixed size={14}/>Ближайший туалет</button>
+      <button onClick={()=>quick('food')}><Utensils size={14}/>Где поесть</button></>}
     </div>
     <p className="map-credit">План этажей — памятка первокурсника ВМК. Этажи 3–4 не показаны: по лестницам идёшь насквозь.</p>
   </div>;

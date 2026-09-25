@@ -136,6 +136,12 @@ try {
   assert.equal(await page.locator('.floor-switch button.has-route').count(),2);
   await page.getByLabel('Поиск на карте').fill('диетка');
   await page.getByRole('option',{name:/Столовая «Диетка»/}).click();
+  assert(await page.getByRole('button',{name:'Показать весь этаж'}).isVisible());
+  assert(await page.locator('canvas.map-label-layer').isVisible(),'room labels are rendered above the model');
+  for(const mode of ['3D','Схема']) {
+    await page.getByRole('button',{name:mode,exact:true}).click();
+    assert(await page.locator('.map-card').getByText('Столовая «Диетка»').isVisible(),'selected place survives mode changes');
+  }
   await page.getByRole('button',{name:'Сюда',exact:true}).click();
   await page.getByText(/Спустись по лестнице . на 2 этаж/).waitFor();
   await page.locator('.scene-view canvas, .scene-view img').first().waitFor();

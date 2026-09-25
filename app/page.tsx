@@ -87,13 +87,13 @@ function LessonCard({lesson,date,today,clock,change,next,hw,preferredTeacher,sta
   const note = lesson.rule?.dates ? 'Только '+lesson.rule.dates.map(d=>formatDate(d,{day:'numeric',month:'short'})).join(', ') : lesson.rule?.from ? 'С '+formatDate(lesson.rule.from) : '';
   const label = now ? `идёт, ещё ${duration(left)}` : next ? `через ${duration(left)}` : '';
   return <LessonAt.Provider value={{date,start:lesson.start}}><article className={`lesson ${lesson.type} ${now?'current':''} ${past?'past':''}`}>
-    <div className="time"><strong>{lesson.start}</strong><span>{lesson.end}</span></div>
-    <div className="lesson-body">
-      <div className="lesson-head">
-        <h3>{cleanTitle(lesson)}</h3>
-        <HomeworkButton task={hw.task} onClick={hw.open}/>
-      </div>
-      {(typeNames[lesson.type] || label) && <p className="meta">{[typeNames[lesson.type],label].filter(Boolean).join(' · ')}</p>}
+    <div className="lesson-time">
+      <span className="range">{lesson.start}<span> – {lesson.end}</span></span>
+      {typeNames[lesson.type] && <span className="tag">{typeNames[lesson.type]}</span>}
+      {label && <span className="live">{label}</span>}
+      <HomeworkButton task={hw.task} onClick={hw.open}/>
+    </div>
+    <h3>{cleanTitle(lesson)}</h3>
       {rows.map((row,i)=><div className="teacher-row" key={i}><span>{row.teacher}</span>{(row.room || (i===0 && lesson.room)) && <Room room={row.room || lesson.room} note={row.note}/>}</div>)}
       {!rows.length && lesson.room && <div className="teacher-row"><span/><Room room={lesson.room}/></div>}
       {now && <div className="progress" aria-hidden="true"><i style={{width:`${Math.round(progress*100)}%`}}/></div>}
@@ -103,7 +103,6 @@ function LessonCard({lesson,date,today,clock,change,next,hw,preferredTeacher,sta
       {stacked && <p className="rule-note">В PDF в этой клетке две записи одна под другой — обычно это чередование недель.</p>}
       {hw.task && !hw.editing && <button className={`hw-preview ${hw.task.done?'task-done':''}`} onClick={hw.open}>{hw.task.text}</button>}
       {hw.editing && hw.editor}
-    </div>
   </article></LessonAt.Provider>;
 }
 
@@ -297,7 +296,10 @@ export default function Home() {
     </nav>
 
     <main onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-      {glance && <section className={`day-glance ${glance.kind}`} aria-label="Мой день сейчас"><strong>{glance.title}</strong>{glance.detail&&<span>{glance.detail}</span>}</section>}
+      {glance && <section className={`day-glance ${glance.kind}`} aria-label="Мой день сейчас">
+        <div className="glance-value" aria-hidden="true">{glance.left==null ? '✓' : glance.left<60 ? <>{glance.left}<small>мин</small></> : <>{Math.floor(glance.left/60)}:{String(glance.left%60).padStart(2,'0')}<small>ч : мин</small></>}</div>
+        <div className="glance-text"><strong>{glance.title}</strong>{glance.detail&&<span>{glance.detail}</span>}</div>
+      </section>}
       {message && <div className="message" role="status"><span>{message}{groupHistory.length>0 && message!=='Изменений нет' && <button onClick={()=>setChangesOpen(true)}>Подробнее</button>}</span><button className="dismiss-message" aria-label="Закрыть уведомление" onClick={()=>setMessage('')}><X size={15}/></button></div>}
       {(selected<`${data.year}-09-01` || selected>`${data.year+1}-01-31`) && <div className="message warning">Это расписание осени {data.year}. Для выбранной даты оно может быть неактуально.</div>}
       <div key={selected+view} className={`slide ${slide}`}>{view==='day'?renderDay(selected):week.map(date=>renderDay(date,true))}</div>

@@ -1,17 +1,44 @@
 import {useEffect,useRef,useState} from 'react';
-import {Moon,Sun,NotebookPen,Check} from 'lucide-react';
+import {Palette,NotebookPen,Check} from 'lucide-react';
 import {Dialog,DialogContent,DialogTitle,DialogDescription} from './ui/dialog';
 
+// name, label, scheme, swatch colours (background, lecture, now)
+export const THEMES = [
+  ['paper','Бумага','light',['#f3efe6','#f5c518','#ff5a36']], ['autumn','Осень','light',['#f4e9dd','#d9692c','#b8321f']],
+  ['winter','Зима','light',['#eaf0f6','#4d86e8','#e0406a']], ['spring','Весна','light',['#f1f5ec','#6dbb5a','#ea4f8a']],
+  ['summer','Лето','light',['#fff6e3','#ffae1f','#ff4e2e']], ['msu','МГУ','light',['#f5efe9','#8e1b2b','#d9432f']],
+  ['night','Ночь','dark',['#15130f','#e8b923','#ff6a48']], ['graphite','Графит','dark',['#111214','#b8f34a','#ff4f8b']],
+] as const;
+const themeKey='vmk114-theme';
+// Older versions stored plain "light"/"dark".
+const legacy=(value:string|null)=>value==='light'?'paper':value==='dark'?'night':value;
+export function applyTheme(choice:string){
+  const name=choice==='auto'?(matchMedia('(prefers-color-scheme: dark)').matches?'night':'paper'):choice;
+  const theme=THEMES.find(t=>t[0]===name)||THEMES[0];
+  document.documentElement.dataset.theme=theme[0];
+  document.documentElement.dataset.scheme=theme[2];
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content',theme[3][0]);
+}
 export function ThemeButton() {
-  const [dark,setDark]=useState(()=>document.documentElement.dataset.theme==='dark');
-  useEffect(()=>{document.querySelector('meta[name="theme-color"]')?.setAttribute('content',dark?'#0f1217':'#f6f7f9');},[dark]);
+  const [choice,setChoice]=useState(()=>{try{return legacy(localStorage.getItem(themeKey))||'auto';}catch{return 'auto';}});
+  const [open,setOpen]=useState(false);
   useEffect(()=>{
-    const media=matchMedia('(prefers-color-scheme: dark)');
-    const follow=()=>{try{if(localStorage.getItem('vmk114-theme'))return;}catch{}document.documentElement.dataset.theme=media.matches?'dark':'light';setDark(media.matches);};
-    follow();media.addEventListener('change',follow);return()=>media.removeEventListener('change',follow);
-  },[]);
-  function toggle(){const next=!dark;setDark(next);document.documentElement.dataset.theme=next?'dark':'light';try{localStorage.setItem('vmk114-theme',next?'dark':'light');}catch{}}
-  return <button className="icon-button" aria-label={dark?'Светлая тема':'Тёмная тема'} title={dark?'Светлая тема':'Тёмная тема'} onClick={toggle}>{dark?<Sun size={17}/>:<Moon size={17}/>}</button>;
+    applyTheme(choice);
+    if(choice!=='auto')return;
+    const media=matchMedia('(prefers-color-scheme: dark)'),follow=()=>applyTheme('auto');
+    media.addEventListener('change',follow);return()=>media.removeEventListener('change',follow);
+  },[choice]);
+  function pick(name:string){setChoice(name);try{localStorage.setItem(themeKey,name);}catch{}}
+  return <>
+    <button className="icon-button" aria-label="Тема оформления" title="Тема оформления" onClick={()=>setOpen(true)}><Palette size={18}/></button>
+    <Dialog open={open} onOpenChange={setOpen}><DialogContent className="changes-dialog"><DialogTitle>Тема</DialogTitle><DialogDescription>Сохраняется на этом устройстве.</DialogDescription>
+      <div className="theme-grid">
+        <button aria-pressed={choice==='auto'} onClick={()=>pick('auto')}><span className="swatch auto"/>Как в системе</button>
+        {THEMES.map(([name,label,,colors])=><button key={name} aria-pressed={choice===name} onClick={()=>pick(name)}>
+          <span className="swatch" style={{background:colors[0]}}><i style={{background:colors[1]}}/><i style={{background:colors[2]}}/></span>{label}</button>)}
+      </div>
+    </DialogContent></Dialog>
+  </>;
 }
 
 export type Task={id:string;date:string;subject:string;text:string;done:boolean;group?:string};

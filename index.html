@@ -10,7 +10,7 @@
     <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
     <link rel="icon" href="%BASE_URL%favicon.svg" />
     <link rel="apple-touch-icon" href="%BASE_URL%icons/apple-touch-icon.png" />
-    <script>try{const preference=localStorage.getItem('vmk114-theme');document.documentElement.dataset.theme=preference||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');}catch{document.documentElement.dataset.theme=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}</script>
+    <script>(function(){var dark=['night','graphite'],t='auto';try{t=localStorage.getItem('vmk114-theme')||'auto';}catch(e){}if(t==='light')t='paper';if(t==='dark')t='night';if(t==='auto')t=matchMedia('(prefers-color-scheme: dark)').matches?'night':'paper';document.documentElement.dataset.theme=t;document.documentElement.dataset.scheme=dark.indexOf(t)>=0?'dark':'light';})();</script>
     <title>114 · Расписание ВМК</title>
   </head>
   <body>

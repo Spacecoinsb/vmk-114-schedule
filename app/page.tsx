@@ -273,20 +273,19 @@ export default function Home() {
     {tab==='map' ? <Suspense fallback={<p className="personal-hint">Загружаем карту…</p>}><CampusMap target={mapTarget?.to ?? null} fromHint={mapTarget?.from ?? null} key={mapTarget?.n ?? 0}>
       {nextLesson && <button onClick={()=>openRoom(roomFor(nextLesson,subgroups.selected),today,nextLesson.start)}>К паре {nextLesson.start}: {roomFor(nextLesson,subgroups.selected)}</button>}
     </CampusMap></Suspense> : <>
-    <div className="toolbar">
-      <div className="view-switch" role="group" aria-label="Вид расписания"><button aria-pressed={view==='day'} onClick={()=>setView('day')}>День</button><button aria-pressed={view==='week'} onClick={()=>setView('week')}>Неделя</button></div>
-      <button className={`status ${tone}`} onClick={()=>setStatusOpen(true)} aria-label={`Статус проверки: ${statusText}`}>
-        <span className="status-icon">{!online?<WifiOff size={13}/>:busy?<RefreshCw size={13} className="spin"/>:<span className="status-dot"/>}</span>
-        <span aria-live="polite">{statusText}</span>
-      </button>
-    </div>
-
     <div className="heading">
-      <div>
-        <p className="eyebrow">{view==='day' ? <>{relative}{relative!==dayNames[weekday(selected)] && ` · ${dayNames[weekday(selected)].toLowerCase()}`} · {lessonCount(selectedLessons.length).toLowerCase()}</> : 'Неделя'}</p>
-        <h1>{view==='day'?formatDate(selected):`${formatDate(monday,{day:'numeric',month:'short'})} — ${formatDate(week[6],{day:'numeric',month:'short'})}`}</h1>
+      <div className="heading-text">
+        <h1>{view==='day'?<>{relative!==dayNames[weekday(selected)] ? `${relative}, ` : `${dayNames[weekday(selected)]}, `}{formatDate(selected)}</>:`${formatDate(monday,{day:'numeric',month:'short'})} — ${formatDate(week[6],{day:'numeric',month:'short'})}`}</h1>
+        <p className="eyebrow">
+          {view==='day' && <span>{lessonCount(selectedLessons.length)}</span>}
+          <button className={`status ${tone}`} onClick={()=>setStatusOpen(true)} aria-label={`Статус проверки: ${statusText}`}>
+            <span className="status-icon">{!online?<WifiOff size={12}/>:busy?<RefreshCw size={12} className="spin"/>:<span className="status-dot"/>}</span>
+            <span aria-live="polite">{statusText}</span>
+          </button>
+          {pinned!==null && <button className="text-button" onClick={()=>go(focus,focus>selected?1:-1)}>{focus===today?'Сегодня':'К ближайшим'}</button>}
+        </p>
       </div>
-      {pinned!==null && <button className="text-button" onClick={()=>go(focus,focus>selected?1:-1)}>{focus===today?'Сегодня':'К ближайшим'}</button>}
+      <div className="view-switch" role="group" aria-label="Вид расписания"><button aria-pressed={view==='day'} onClick={()=>setView('day')}>День</button><button aria-pressed={view==='week'} onClick={()=>setView('week')}>Неделя</button></div>
     </div>
 
     <nav className="date-navigation" aria-label="Выбрать день">
@@ -296,9 +295,10 @@ export default function Home() {
     </nav>
 
     <main onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-      {glance && <section className={`day-glance ${glance.kind}`} aria-label="Мой день сейчас">
-        <div className="glance-value" aria-hidden="true">{glance.left==null ? '✓' : glance.left<60 ? <>{glance.left}<small>мин</small></> : <>{Math.floor(glance.left/60)}:{String(glance.left%60).padStart(2,'0')}<small>ч : мин</small></>}</div>
-        <div className="glance-text"><strong>{glance.title}</strong>{glance.detail&&<span>{glance.detail}</span>}</div>
+      {glance && glance.kind!=='done' && <section className={`glance-line ${glance.kind}`} aria-label="Мой день сейчас">
+        <b>{glance.left!=null && (glance.left<60 ? `${glance.left} мин` : `${Math.floor(glance.left/60)}:${String(glance.left%60).padStart(2,'0')}`)}</b>
+        <strong>{{now:'до конца пары',before:'до первой пары',break:'до следующей пары'}[glance.kind as 'now']}</strong>
+        <span>{glance.kind==='now' ? (glance.detail.split('дальше ')[1] ? `· дальше ${glance.detail.split('дальше ')[1].split(' · ')[0]}` : '· последняя') : `· ${glance.detail.split(' · ')[0]}`}</span>
       </section>}
       {message && <div className="message" role="status"><span>{message}{groupHistory.length>0 && message!=='Изменений нет' && <button onClick={()=>setChangesOpen(true)}>Подробнее</button>}</span><button className="dismiss-message" aria-label="Закрыть уведомление" onClick={()=>setMessage('')}><X size={15}/></button></div>}
       {(selected<`${data.year}-09-01` || selected>`${data.year+1}-01-31`) && <div className="message warning">Это расписание осени {data.year}. Для выбранной даты оно может быть неактуально.</div>}

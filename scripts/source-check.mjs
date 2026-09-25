@@ -1,5 +1,5 @@
 import {createHash} from 'node:crypto';
-import {PARSER_VERSION, validSchedule} from '../lib/schedule-model.mjs';
+import {DEFAULT_GROUP, HISTORY_LIMIT, PARSER_VERSION, diffTables, validHistory, validTable} from '../lib/schedule-model.mjs';
 
 export const PAGE = 'https://cs.msu.ru/studies/schedule';
 export function readMetadata(html) {
@@ -41,8 +41,19 @@ async function download(fetcher, url, accept, limit) {
   throw Error('Слишком много перенаправлений ВМК.');
 }
 
+// Older snapshots stored only group 114.
+export function previousTable(previous) {
+  const schedule = previous?.schedule;
+  if (validTable(schedule)) return schedule;
+  if (schedule?.lessons) { const {lessons, page, group, ...rest} = schedule; return {...rest, groups:{[DEFAULT_GROUP]:{page, lessons}}}; }
+  return null;
+}
+
 // Every successful check downloads and parses the PDF, even if its URL/date did not change.
+// When VMK publishes a new date or a different PDF, the exact differences of every group are recorded.
 export async function checkSource({previous, parse, fetcher = fetch, now = () => new Date().toISOString()}) {
+  const before = previousTable(previous);
+  const history = validHistory(previous?.history) ? previous.history : [];
   try {
     const html = await download(fetcher, PAGE, 'text/html', 2_000_000);
     const metadata = readMetadata(html.toString('utf8'));
@@ -51,13 +62,23 @@ export async function checkSource({previous, parse, fetcher = fetch, now = () =>
     const hash = createHash('sha256').update(pdf).digest('hex');
     const parsed = await parse(pdf);
     const attemptedAt = now();
-    const savedAt = previous.schedule?.hash === hash ? previous.schedule.savedAt : attemptedAt;
-    const schedule = {...parsed, sourceDate:metadata.date, sourceUrl:metadata.url, hash, savedAt, parserVersion:PARSER_VERSION};
-    if (!validSchedule(schedule)) throw Error('Не удалось проверить полноту расписания 114 группы.');
-    return {pdf, snapshot:{schema:2, status:'ok', attemptedAt, checkedAt:attemptedAt, error:null, date:metadata.date, url:metadata.url, hash, schedule}};
+    const savedAt = before?.hash === hash ? before.savedAt : attemptedAt;
+    const schedule = {year:parsed.year, groups:parsed.groups, sourceDate:metadata.date, sourceUrl:metadata.url, hash, savedAt, parserVersion:PARSER_VERSION};
+    if (!validTable(schedule)) throw Error('Не удалось проверить полноту расписания.');
+    let nextHistory = history;
+    const pdfChanged = !!before && before.hash !== hash;
+    if (before && (pdfChanged || before.sourceDate !== metadata.date)) {
+      // A parser upgrade on an unchanged PDF must not look like a timetable change.
+      const changes = pdfChanged ? diffTables(before, schedule) : {};
+      // Groups first seen after the single-group era are not "new classes".
+      if (pdfChanged) for (const name of Object.keys(changes)) if (!before.groups[name] && Object.keys(before.groups).length === 1) delete changes[name];
+      nextHistory = [{date:metadata.date, previousDate:before.sourceDate || null, detectedAt:attemptedAt, pdfChanged, changes}, ...history].slice(0, HISTORY_LIMIT);
+    }
+    return {pdf, snapshot:{schema:3, status:'ok', attemptedAt, checkedAt:attemptedAt, error:null, date:metadata.date, url:metadata.url, hash, schedule, history:nextHistory}};
   } catch (error) {
-    if (!validSchedule(previous.schedule)) throw error;
-    return {pdf:null, snapshot:{...previous, schema:2, status:'error', attemptedAt:now(), checkedAt:previous.checkedAt || null,
-      error:error instanceof Error ? error.message : 'Не удалось проверить сайт ВМК.'}};
+    if (!before) throw error;
+    return {pdf:null, snapshot:{schema:3, status:'error', attemptedAt:now(), checkedAt:previous.checkedAt || null,
+      error:error instanceof Error ? error.message : 'Не удалось проверить сайт ВМК.',
+      date:before.sourceDate, url:before.sourceUrl, hash:before.hash, schedule:before, history}};
   }
 }

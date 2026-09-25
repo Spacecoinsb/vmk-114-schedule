@@ -1,10 +1,11 @@
-import {useState} from 'react';
+import {useEffect,useState} from 'react';
 import {Dialog,DialogContent,DialogTitle,DialogDescription} from './ui/dialog';
 import {cleanTitle,teacherRows} from '../lib/schedule-model.mjs';
 
-const storageKey='vmk114-subgroups-v1';
+// Group 114 keeps its original key so earlier choices survive.
+const keyFor=(group:string)=>group==='114'?'vmk114-subgroups-v1':`vmk-subgroups-${group}`;
 type Selection=Record<string,string>;
-function load():Selection {
+function load(storageKey:string):Selection {
   try {
     const value=JSON.parse(localStorage.getItem(storageKey)||'{}');
     return value && typeof value==='object' && !Array.isArray(value)
@@ -12,8 +13,10 @@ function load():Selection {
   } catch {return {};}
 }
 
-export function useSubgroups(lessons:{title:string;detail:string}[]) {
-  const [selected,setSelected]=useState<Selection>(load);
+export function useSubgroups(lessons:{title:string;detail:string}[],group:string) {
+  const storageKey=keyFor(group);
+  const [selected,setSelected]=useState<Selection>(()=>load(storageKey));
+  useEffect(()=>setSelected(load(storageKey)),[storageKey]);
   const [draft,setDraft]=useState<Selection>({});
   const [open,setOpen]=useState(false),[error,setError]=useState('');
   const subjects=new Map<string,Set<string>>();

@@ -39,68 +39,94 @@ function linesOf(items) {
 function dateRule(title,year) {
   const explicit=title.match(/((?:\d{1,2}[.,]?\s*,\s*)+\d{1,2})\s*\.\s*(\d{2})/);
   if(explicit){const month=explicit[2];return {dates:explicit[1].match(/\d+/g).map(d=>`${year}-${month}-${d.padStart(2,'0')}`)};}
-  const since=title.match(/\bс\s+(\d{1,2})\.(\d{2})/i) || title.match(/с\s+(\d{1,2})\.(\d{2})/i);
+  const since=title.match(/(?:^|\s)с\s+(\d{1,2})\s*\.\s*(\d{2})/i);
   if(since)return {from:`${year}-${since[2]}-${since[1].padStart(2,'0')}`};
   if(/с октября/i.test(title))return {from:`${year}-10-01`};
+  // A bare "10.09 Title" marks the first date of a weekly class.
+  const bare=title.match(/^(\d{1,2})\.(\d{2})\s/);
+  if(bare&&Number(bare[2])>=1&&Number(bare[2])<=12)return {from:`${year}-${bare[2]}-${bare[1].padStart(2,'0')}`};
   return null;
 }
-export async function parseSchedule(pdfjs,data) {
-  const task=pdfjs.getDocument({data:new Uint8Array(data),isEvalSupported:false,useSystemFonts:true});
+const ROOM=/\s+(П\s*[-–]\s*\d+|\d{2,3}(?:\s*-\s*[а-я])?(?:\/\d)?)\s*$/i;
+function lesson(day,rowId,start,end,cell,shared,year,suffix){
+  const raw=cell.map(l=>l.text).join('\n');
+  const titleParts=[];let split=0;
+  for(const l of cell){if(titleParts.length&&(/(?:[А-ЯЁ]\.\s*){2}/.test(l.text)||/^(доцент|профессор|академик)\s/i.test(l.text)))break;titleParts.push(l.text);split++;}
+  let title=titleParts.join(' ').replace(/^\.?\s*/,'');
+  const range=title.match(/^(\d{1,2})[.:](\d{2})\s*[–—-]\s*(\d{1,2})[.:](\d{2})\s*/);
+  if(range){start=`${range[1].padStart(2,'0')}:${range[2]}`;end=`${range[3].padStart(2,'0')}:${range[4]}`;title=title.slice(range[0].length);}
+  // "12.15 Алгебра" is a later start time (minutes > 12 cannot be a month).
+  const late=title.match(/^(\d{1,2})\.(\d{2})\s+/);
+  if(late&&Number(late[2])>12&&Number(late[1])>=8&&Number(late[1])<=20){start=`${late[1].padStart(2,'0')}:${late[2]}`;title=title.slice(late[0].length);}
+  let room=title.match(ROOM)?.[1]?.replace(/\s/g,'').replace('–','-')||'';
+  if(room)title=title.replace(ROOM,'');
+  const detail=cell.slice(split).map(l=>l.text).join('\n');
+  const type=/^Конс/i.test(title)?'consultation':/Физическая/.test(title)?'sport':(room&&(shared||/^П/.test(room)))||(shared&&/^(доцент|профессор|академик)/im.test(detail))?'lecture':'class';
+  return {id:`${day}-${rowId}${suffix}`,day,start,end,title,detail,room,type,rule:dateRule(title,year),raw};
+}
+function uniqueRows(items){
+  const rows=[];
+  for(const item of [...items].sort((a,b)=>a.y-b.y||a.x-b.x)) if(!rows.some(r=>Math.abs(r.y-item.y)<6)) rows.push(item);
+  return rows;
+}
+// Parses every group column of every page: {year, groups:{"101":{page,lessons}, …}}.
+export async function parseAll(pdfjs,data) {
+  const task=pdfjs.getDocument({data:new Uint8Array(data),isEvalSupported:false,useSystemFonts:true,verbosity:0});
   const doc=await task.promise;
   try {
+    const groups={};let year=0;
     for(let pageNo=1;pageNo<=doc.numPages;pageNo++) {
       const page=await doc.getPage(pageNo),content=await page.getTextContent();
-      if(!content.items.some(i=>i.str?.trim()==='114'))continue;
       const height=page.view[3],items=content.items.filter(i=>i.str?.trim()).map(i=>({str:i.str,x:i.transform[4],y:height-i.transform[5],width:i.width}));
-      const headers=items.filter(i=>DAYS.includes(i.str.trim().toLowerCase())).sort((a,b)=>a.y-b.y);
-      if(headers.length!==6)throw Error('В PDF изменилась структура дней. Сохранённое расписание оставлено.');
-      const year=Number(items.map(i=>i.str).join(' ').match(/(20\d{2})\s*\/\s*20\d{2}/)?.[1]);
+      const headers=uniqueRows(items.filter(i=>DAYS.includes(i.str.trim().toLowerCase())));
+      if(!headers.length)continue;
+      if(headers.length!==6)throw Error(`Страница ${pageNo}: в PDF изменилась структура дней.`);
+      year||=Number(items.map(i=>i.str).join(' ').match(/(20\d{2})\s*\/\s*20\d{2}/)?.[1]);
       if(!year)throw Error('Не удалось определить учебный год PDF.');
       const {horizontal,vertical}=borders(await page.getOperatorList(),pdfjs.OPS,height);
-      const lessons=[];
       for(let day=0;day<6;day++) {
         const head=headers[day],bottom=headers[day+1]?.y??height;
-        const group=items.find(i=>i.str.trim()==='114'&&Math.abs(i.y-head.y)<6);
-        const first=items.filter(i=>/^1\d\d$/.test(i.str.trim())&&Math.abs(i.y-head.y)<6).sort((a,b)=>a.x-b.x)[0];
-        if(!group||!first)throw Error('Не найдена колонка 114.');
-        const gx=group.x+group.width/2;
-        const contentLeft=Math.max(...vertical.filter(v=>v.x0<first.x&&v.y0<head.y&&v.y1>head.y).map(v=>v.x0));
+        const cols=items.filter(i=>/^1\d\d$/.test(i.str.trim())&&Math.abs(i.y-head.y)<6).sort((a,b)=>a.x-b.x).map(i=>({group:i.str.trim(),x:i.x+i.width/2}));
+        if(!cols.length)throw Error(`Страница ${pageNo}: не найдены номера групп.`);
+        const contentLeft=Math.max(...vertical.filter(v=>v.x0<cols[0].x-10&&v.y0<head.y&&v.y1>head.y).map(v=>v.x0));
         if(!Number.isFinite(contentLeft))throw Error('Не найдена граница таблицы.');
-        const times=linesOf(items.filter(i=>i.x<contentLeft-2&&i.y>head.y+5&&i.y<bottom-8));
+        const times=linesOf(items.filter(i=>i.x<contentLeft-2&&i.y>head.y+5&&i.y<bottom-4));
         let validTimes=0;
         for(const t of times){
           const match=t.text.match(/(\d{1,2})[.:](\d{2})\s*[–—-]\s*(\d{1,2})[.:](\d{2})/);
           if(!match)continue;
           validTimes++;
-          const crosses=horizontal.filter(h=>h.x0<gx&&h.x1>gx);
-          const top=Math.max(...crosses.filter(h=>h.y0<t.y-2).map(h=>h.y0));
-          const end=Math.min(...crosses.filter(h=>h.y0>t.y+1).map(h=>h.y0));
-          if(!Number.isFinite(top)||!Number.isFinite(end)||end-top>180)throw Error('Не удалось прочитать строки PDF.');
-          const mid=(top+end)/2;
-          const vs=vertical.filter(v=>v.y0<mid&&v.y1>mid);
-          const left=Math.max(contentLeft,...vs.filter(v=>v.x0<gx).map(v=>v.x0));
-          const right=Math.min(...vs.filter(v=>v.x0>gx).map(v=>v.x0));
-          if(!Number.isFinite(right))throw Error('Не найдена правая граница ячейки.');
-          const cell=linesOf(items.filter(i=>i.x+i.width/2>left+1&&i.x+i.width/2<right-1&&i.y>top+2&&i.y<end-1));
-          if(!cell.length)continue;
-          const raw=cell.map(l=>l.text).join('\n');
-          const titleParts=[];let split=0;
-          for(const l of cell){if(titleParts.length&&(/(?:[А-ЯЁ]\.\s*){2}/.test(l.text)||/^(доцент|профессор|академик)\s/i.test(l.text)))break;titleParts.push(l.text);split++;}
-          let title=titleParts.join(' ').replace(/^\.?\s*/,'');
-          // A full-width sports row repeats its time inside the cell.
-          title=title.replace(/^\d{1,2}[.:]\d{2}\s*[–—-]\s*\d{1,2}[.:]\d{2}\s*/,'');
-          const room=title.match(/\s+(П\s*[-–]\s*\d+)\s*$/i)?.[1]?.replace(/\s/g,'')||'';
-          if(room)title=title.replace(/\s+П\s*[-–]\s*\d+\s*$/i,'');
-          const detail=cell.slice(split).map(l=>l.text).join('\n');
-          const type=/Конс\./i.test(title)?'consultation':/Физическая/.test(title)?'sport':room?'lecture':'class';
-          lessons.push({id:`${day}-${match[1].padStart(2,'0')}:${match[2]}`,day,start:`${match[1].padStart(2,'0')}:${match[2]}`,end:`${match[3].padStart(2,'0')}:${match[4]}`,title,detail,room,type,rule:dateRule(title,year),raw});
+          const start=`${match[1].padStart(2,'0')}:${match[2]}`,end=`${match[3].padStart(2,'0')}:${match[4]}`;
+          const tx=contentLeft-6;
+          const rowLines=horizontal.filter(h=>h.x0<tx&&h.x1>tx);
+          const top=Math.max(...rowLines.filter(h=>h.y0<t.y-4).map(h=>h.y0));
+          const rowEnd=Math.min(...rowLines.filter(h=>h.y0>t.y+1).map(h=>h.y0));
+          if(!Number.isFinite(top)||!Number.isFinite(rowEnd)||rowEnd-top>200)throw Error('Не удалось прочитать строки PDF.');
+          for(const col of cols){
+            const inner=horizontal.filter(h=>h.x0<col.x&&h.x1>col.x&&h.y0>top+3&&h.y0<rowEnd-3).map(h=>h.y0).sort((a,b)=>a-b);
+            const bounds=[top];for(const y of inner)if(y-bounds.at(-1)>3)bounds.push(y);bounds.push(rowEnd);
+            let n=0;
+            for(let k=0;k<bounds.length-1;k++){
+              const a=bounds[k],b=bounds[k+1],mid=(a+b)/2;
+              const vs=vertical.filter(v=>v.y0<mid&&v.y1>mid);
+              const left=Math.max(contentLeft,...vs.filter(v=>v.x0<col.x).map(v=>v.x0));
+              const right=Math.min(...vs.filter(v=>v.x0>col.x).map(v=>v.x0));
+              if(!Number.isFinite(right))throw Error('Не найдена правая граница ячейки.');
+              const cell=linesOf(items.filter(i=>i.x+i.width/2>left+1&&i.x+i.width/2<right-1&&i.y>a+2&&i.y<b));
+              if(!cell.length)continue;
+              const shared=cols.filter(c=>c.x>left&&c.x<right).length>1;
+              (groups[col.group]||={page:pageNo,lessons:[]}).lessons.push(lesson(day,start,start,end,cell,shared,year,n++?`-${n}`:''));
+            }
+          }
         }
         if(validTimes<3||validTimes>8)throw Error('Не удалось проверить время занятий.');
       }
-      if(lessons.length<12||lessons.length>40||new Set(lessons.map(x=>x.id)).size!==lessons.length)throw Error('Не удалось проверить полноту расписания.');
-      return {group:114,year,page:pageNo,lessons};
     }
-    throw Error('В PDF не найдена группа 114.');
+    const names=Object.keys(groups);
+    if(!names.includes('114'))throw Error('В PDF не найдена группа 114.');
+    for(const name of names){const lessons=groups[name].lessons;if(lessons.length<8||lessons.length>45)throw Error(`Не удалось проверить полноту расписания группы ${name}.`);}
+    return {year,groups};
   }finally{await doc.destroy();}
 }
+export async function parseSchedule(pdfjs,data,group='114'){const all=await parseAll(pdfjs,data);return {group:Number(group),year:all.year,...all.groups[group]};}
 export function isActive(lesson,date){const day=date.slice(0,10);return !lesson.rule || ((!lesson.rule.from||day>=lesson.rule.from)&&(!lesson.rule.dates||lesson.rule.dates.includes(day)));}

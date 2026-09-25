@@ -1,7 +1,7 @@
 import React, {useEffect, useRef, useState, type TouchEvent} from 'react';
-import {ArrowUpRight, CalendarDays, ChevronLeft, ChevronRight, RefreshCw, WifiOff, X} from 'lucide-react';
+import {ArrowUpRight, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, RefreshCw, WifiOff, X} from 'lucide-react';
 import {Dialog, DialogContent, DialogTitle, DialogDescription} from '@/components/ui/dialog';
-import {cleanTitle, diffSchedules, isDisplayedLesson, teacherRows, validSchedule, validSnapshot, verification} from '@/lib/schedule-model.mjs';
+import {DEFAULT_GROUP, cleanTitle, groupSchedule, isDisplayedLesson, teacherRows, validSnapshot, verification} from '@/lib/schedule-model.mjs';
 import {ThemeButton,HomeworkButton,HomeworkEditor,useHomework,type Task} from '@/components/personal';
 import {useSubgroups} from '@/components/subgroups';
 import {dayGlance, duration, focusDate, minutes} from '@/lib/day-glance.mjs';
@@ -9,13 +9,17 @@ import seed from '@/public/source.json';
 
 type Lesson = {id:string; day:number; start:string; end:string; title:string; detail:string; room:string; type:string; raw:string; rule:{from?:string; dates?:string[]}|null};
 type Schedule = {group:number; year:number; page:number; lessons:Lesson[]; sourceDate:string; sourceUrl:string; hash:string; savedAt:string};
-type Snapshot = {schema:number; status:string; attemptedAt:string; checkedAt:string|null; error:string|null; date:string; url:string; hash:string; schedule:Schedule};
+type Table = {year:number; groups:Record<string,{page:number; lessons:Lesson[]}>; sourceDate:string; sourceUrl:string; hash:string; savedAt:string};
+type HistoryEntry = {date:string; previousDate:string|null; detectedAt:string; pdfChanged:boolean; changes:Record<string,Change[]>};
+type Snapshot = {schema:number; status:string; attemptedAt:string; checkedAt:string|null; error:string|null; date:string; url:string; hash:string; schedule:Table; history:HistoryEntry[]};
 type Change = {id:string; day:number; start:string; title?:string; before?:string; after?:string; details?:string[]};
-type Saved = {data:Schedule; snapshot:Snapshot|null; syncedAt:string; changes:Change[]};
+type Saved = {snapshot:Snapshot; syncedAt:string};
 const dayNames = ['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье'];
 const shortDays = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
 const typeNames:Record<string,string> = {lecture:'Лекция', consultation:'Консультация'};
-const storageKey = 'vmk114-v1';
+const storageKey = 'vmk-v2';
+const groupKey = 'vmk-group';
+const RECENT = 7*86400000;
 const dataCache = 'vmk114-data-v1';
 const asset = (path:string) => import.meta.env.BASE_URL + path.replace(/^\//,'');
 const pdfKey = (hash:string) => asset(`saved-schedule-${hash}.pdf`);
@@ -37,21 +41,21 @@ function ago(iso:string|null) {
   return stamp(iso);
 }
 const active = (lesson:Lesson,date:string) => !lesson.rule || ((!lesson.rule.from || date>=lesson.rule.from) && (!lesson.rule.dates || lesson.rule.dates.includes(date)));
-const safeChanges = (value:unknown):Change[] => Array.isArray(value) ? value.filter(c => c && typeof c.id==='string' && Number.isInteger(c.day) && c.day>=0 && c.day<6 && typeof c.start==='string' && (c.before===undefined || typeof c.before==='string') && (c.after===undefined || typeof c.after==='string') && (c.details===undefined || (Array.isArray(c.details) && c.details.every((d:unknown)=>typeof d==='string')))) : [];
-
 function initialState():Saved {
-  const fallback:Saved = {data:seed.schedule as Schedule, snapshot:seed as Snapshot, syncedAt:'', changes:[]};
+  const fallback:Saved = {snapshot:seed as Snapshot, syncedAt:''};
   try {
     const old = JSON.parse(localStorage.getItem(storageKey)||'null');
-    if (!validSchedule(old?.data)) return fallback;
-    const snapshot = validSnapshot(old.snapshot) && old.snapshot.hash===old.data.hash ? old.snapshot : null;
+    if (!validSnapshot(old?.snapshot)) return fallback;
     // Prefer the newer bundled version after an app update, while retaining newer offline data.
-    if (Date.parse(snapshot?.attemptedAt || old.data.savedAt) < Date.parse(seed.attemptedAt)) {
-      const diff = diffSchedules(old.data,fallback.data) as Change[];
-      return {...fallback,changes:diff.length?diff:old.data.hash===fallback.data.hash?safeChanges(old.changes):[]};
-    }
-    return {data:old.data, snapshot, syncedAt:typeof old.syncedAt==='string'?old.syncedAt:'', changes:safeChanges(old.changes)};
+    if (Date.parse(old.snapshot.attemptedAt) < Date.parse(seed.attemptedAt)) return fallback;
+    return {snapshot:old.snapshot, syncedAt:typeof old.syncedAt==='string'?old.syncedAt:''};
   } catch { return fallback; }
+}
+function loadGroup() { try { return localStorage.getItem(groupKey) || DEFAULT_GROUP; } catch { return DEFAULT_GROUP; } }
+function describeUpdate(entry:HistoryEntry, group:string) {
+  const list = entry.changes[group] || [];
+  if (!list.length) return entry.pdfChanged ? `ВМК обновил PDF (от ${entry.date}) — у группы ${group} ничего не поменялось.` : `На сайте ВМК новая дата расписания (${entry.date}), сам PDF не изменился.`;
+  return `ВМК обновил расписание (от ${entry.date}): `+list.slice(0,3).map(c=>`${shortDays[c.day]} ${c.start} ${c.title||''} — ${(c.details||[]).join('; ')}`).join(' · ')+(list.length>3?` и ещё ${list.length-3}`:'');
 }
 function persist(value:Saved) {
   try { localStorage.setItem(storageKey,JSON.stringify(value)); }
@@ -62,7 +66,7 @@ function Room({room,note=''}:{room:string; note?:string}) {
   return <span className="room" aria-label={`Аудитория ${room}${note?', '+note:''}`}>{room}{note && <span className="room-note">{note}</span>}</span>;
 }
 type Editor = {task?:Task; editing:boolean; open:()=>void; editor:React.ReactNode};
-function LessonCard({lesson,date,today,clock,change,next,hw,preferredTeacher}:{lesson:Lesson;date:string;today:string;clock:string;change?:Change;next:boolean;hw:Editor;preferredTeacher?:string}) {
+function LessonCard({lesson,date,today,clock,change,next,hw,preferredTeacher,stacked}:{lesson:Lesson;date:string;today:string;clock:string;change?:Change;next:boolean;hw:Editor;preferredTeacher?:string;stacked:boolean}) {
   const now = date===today && !!clock && clock>=lesson.start && clock<lesson.end;
   const past = date<today || (date===today && !!clock && clock>=lesson.end);
   const left = clock ? minutes(now?lesson.end:lesson.start)-minutes(clock) : 0;
@@ -87,6 +91,7 @@ function LessonCard({lesson,date,today,clock,change,next,hw,preferredTeacher}:{l
       {change && <p className="changed-note">Изменено: {(change.details?.length?change.details:['обновлена запись в PDF']).join('; ')}</p>}
       {missingTeacher && <p className="rule-note subgroup-warning">Преподаватель подгруппы изменился — показаны все варианты.</p>}
       {note && <p className="rule-note">{note}</p>}
+      {stacked && <p className="rule-note">В PDF в этой клетке две записи одна под другой — обычно это чередование недель.</p>}
       {hw.task && !hw.editing && <button className={`hw-preview ${hw.task.done?'task-done':''}`} onClick={hw.open}>{hw.task.text}</button>}
       {hw.editing && hw.editor}
     </div>
@@ -103,9 +108,18 @@ export default function Home() {
   const [message,setMessage] = useState(''), [syncError,setSyncError] = useState(''), [offlineReady,setOfflineReady] = useState(false);
   const [changesOpen,setChangesOpen] = useState(false), [statusOpen,setStatusOpen] = useState(false), [pdfUrl,setPdfUrl] = useState(''), [pdfError,setPdfError] = useState('');
   const checking = useRef(false), lastAttempt = useRef(0), touch = useRef<{x:number;y:number}|null>(null);
-  const data = saved.data;
-  const subgroups=useSubgroups(data.lessons);
-  const homework=useHomework((date)=>{setView('day');go(date);});
+  const [group,setGroupState] = useState(loadGroup), [groupsOpen,setGroupsOpen] = useState(false);
+  const table = saved.snapshot.schedule;
+  const data = groupSchedule(table,group) as Schedule;
+  const groupName = String(data.group);
+  const history = saved.snapshot.history;
+  // Latest version of every class changed by a VMK update within the last week.
+  const recent = history.filter(h=>Date.now()-Date.parse(h.detectedAt)<RECENT).flatMap(h=>h.changes[groupName]||[]);
+  const changeFor = (id:string) => recent.find(c=>c.id===id);
+  const groupHistory = history.filter(h=>h.changes[groupName]?.length || !Object.keys(h.changes).length);
+  const subgroups=useSubgroups(data.lessons,groupName);
+  const homework=useHomework(groupName,(date)=>{setView('day');go(date);});
+  function setGroup(name:string){setGroupState(name);setGroupsOpen(false);setMessage('');try{localStorage.setItem(groupKey,name);}catch{}}
   const focus = focusDate(data,today,clock) as string;
   const selected = pinned ?? focus;
   const monday = addDays(selected,-weekday(selected));
@@ -116,9 +130,9 @@ export default function Home() {
   const status = verification(saved.snapshot);
   const glance = view==='day' && (selected===today || selected===focus) ? dayGlance(data,today,clock,subgroups.selected) : null;
   const relative = selected===today ? 'Сегодня' : selected===addDays(today,1) ? 'Завтра' : selected===addDays(today,-1) ? 'Вчера' : dayNames[weekday(selected)];
-  const checkedAgo = ago(saved.snapshot?.checkedAt || null);
+  const checkedAgo = ago(saved.snapshot.checkedAt || null);
   const statusText = !online ? 'Без интернета · сохранённая копия' : busy ? 'Получаем обновления…' : syncError ? 'Не удалось получить обновления'
-    : saved.snapshot?.status==='error' ? 'Не удалось проверить ВМК' : checkedAgo ? `Сверено с ВМК ${checkedAgo}` : status.title;
+    : saved.snapshot.status==='error' ? 'Не удалось проверить ВМК' : checkedAgo ? `Сверено с ВМК ${checkedAgo}` : status.title;
   const tone = !online ? 'offline' : syncError ? 'warn' : status.tone;
 
   function go(date:string,direction=0) {
@@ -162,14 +176,15 @@ export default function Home() {
       const snapshot = await response.json() as Snapshot;
       if (!validSnapshot(snapshot)) throw Error('Не удалось проверить полученное расписание. Предыдущая версия оставлена.');
       const before = current.current;
-      if (before.snapshot && Date.parse(snapshot.attemptedAt)<Date.parse(before.snapshot.attemptedAt)) throw Error('Сервер вернул старую копию. Повтори обновление позже.');
-      const diff = diffSchedules(before.data,snapshot.schedule) as Change[];
-      const changed = before.data.hash!==snapshot.hash || diff.length>0;
-      const next:Saved = {data:snapshot.schedule,snapshot,syncedAt:new Date().toISOString(),changes:changed?diff:before.changes};
+      if (Date.parse(snapshot.attemptedAt)<Date.parse(before.snapshot.attemptedAt)) throw Error('Сервер вернул старую копию. Повтори обновление позже.');
+      const next:Saved = {snapshot,syncedAt:new Date().toISOString()};
       persist(next);
       current.current=next; setSaved(next);
-      if (before.data.hash!==snapshot.hash) setPdfUrl('');
-      if (diff.length) setMessage('Расписание изменилось: '+diff.slice(0,3).map(c=>`${shortDays[c.day]} ${c.start} ${c.title||''} — ${(c.details||[]).join('; ')}`).join(' · ')+(diff.length>3?` и ещё ${diff.length-3}`:''));
+      if (before.snapshot.hash!==snapshot.hash) setPdfUrl('');
+      // Everything VMK published since this device last synced, described for the chosen group.
+      const fresh = snapshot.history.filter(h=>Date.parse(h.detectedAt)>Date.parse(before.snapshot.attemptedAt));
+      const name = String(groupSchedule(snapshot.schedule,loadGroup()).group);
+      if (fresh.length) setMessage(describeUpdate(fresh[0],name));
       else if (manual) setMessage('Изменений нет');
       try { await savePdf(snapshot.hash); }
       catch (error) { setPdfError(error instanceof Error?error.message:'Не удалось сохранить PDF. Пары сохранены.'); }
@@ -194,7 +209,7 @@ export default function Home() {
         await navigator.serviceWorker.ready;
         if (!disposed) setOfflineReady(!!await caches.match(asset('offline-ready')));
         void registration.update().catch(()=>{});
-        if (await (await caches.open(dataCache)).match(pdfKey(current.current.data.hash))) setPdfUrl(pdfKey(current.current.data.hash));
+        if (await (await caches.open(dataCache)).match(pdfKey(current.current.snapshot.hash))) setPdfUrl(pdfKey(current.current.snapshot.hash));
       } catch { if(!disposed)setSyncError('Не удалось подготовить доступ без сети. Подключись к интернету и открой сайт ещё раз.'); }
     }
     void prepareOffline(); void refresh();
@@ -220,13 +235,13 @@ export default function Home() {
     const list=data.lessons.filter(l=>isDisplayedLesson(l) && l.day===weekday(date) && active(l,date)).sort((a,b)=>a.start.localeCompare(b.start));
     return <section className={weekly?'week-day':''} key={date} aria-label={formatDate(date)}>
       {weekly && <div className="day-title"><h2>{dayNames[weekday(date)]}<span> · {formatDate(date,{day:'numeric',month:'short'})}</span></h2><span>{lessonCount(list.length)}</span></div>}
-      {list.length ? <div className="list">{list.map(l=><LessonCard key={l.id} lesson={l} date={date} today={today} clock={clock} change={saved.changes.find(c=>c.id===l.id)} next={date===today && l.id===nextId} hw={editorFor(date,l)} preferredTeacher={subgroups.selected[cleanTitle(l)]}/>)}</div> : <div className="empty"><CalendarDays size={22}/><p>Пар нет — отдыхай</p></div>}
+      {list.length ? <div className="list">{list.map(l=><LessonCard key={l.id} lesson={l} date={date} today={today} clock={clock} change={changeFor(l.id)} next={date===today && l.id===nextId} hw={editorFor(date,l)} preferredTeacher={subgroups.selected[cleanTitle(l)]} stacked={list.filter(o=>o.id.split('-').slice(0,2).join('-')===l.id.split('-').slice(0,2).join('-')).length>1}/>)}</div> : <div className="empty"><CalendarDays size={22}/><p>Пар нет — отдыхай</p></div>}
     </section>;
   }
 
   return <div className="shell">
     <header className="topbar">
-      <a className="brand" href={import.meta.env.BASE_URL} aria-label="Расписание группы 114"><span className="brandmark">ВМК</span><span><strong>114 группа</strong><small>Расписание · МГУ</small></span></a>
+      <button className="brand" onClick={()=>setGroupsOpen(true)} aria-label={`Группа ${groupName}, сменить`}><span className="brandmark">ВМК</span><span><strong>{groupName} группа <ChevronDown size={14}/></strong><small>Расписание · МГУ</small></span></button>
       <div className="header-actions">
         <a className="vmk-link" href="https://cs.msu.ru/studies/schedule" target="_blank" rel="noreferrer">Сайт ВМК<ArrowUpRight size={14}/></a>
         <ThemeButton/>
@@ -257,25 +272,25 @@ export default function Home() {
 
     <main onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
       {glance && <section className={`day-glance ${glance.kind}`} aria-label="Мой день сейчас"><strong>{glance.title}</strong>{glance.detail&&<span>{glance.detail}</span>}</section>}
-      {message && <div className="message" role="status"><span>{message}{saved.changes.length>0 && <button onClick={()=>setChangesOpen(true)}>Что изменилось</button>}</span><button className="dismiss-message" aria-label="Закрыть уведомление" onClick={()=>setMessage('')}><X size={15}/></button></div>}
+      {message && <div className="message" role="status"><span>{message}{groupHistory.length>0 && message!=='Изменений нет' && <button onClick={()=>setChangesOpen(true)}>Подробнее</button>}</span><button className="dismiss-message" aria-label="Закрыть уведомление" onClick={()=>setMessage('')}><X size={15}/></button></div>}
       {(selected<`${data.year}-09-01` || selected>`${data.year+1}-01-31`) && <div className="message warning">Это расписание осени {data.year}. Для выбранной даты оно может быть неактуально.</div>}
       <div key={selected+view} className={`slide ${slide}`}>{view==='day'?renderDay(selected):week.map(date=>renderDay(date,true))}</div>
     </main>
 
     <footer className="footer">
-      <div className="footer-links">{homework.listButton}{subgroups.button}{saved.changes.length>0 && <button onClick={()=>setChangesOpen(true)}>Изменения</button>}{pdfUrl && <a href={pdfUrl} target="_blank" rel="noreferrer">PDF</a>}</div>
+      <div className="footer-links">{homework.listButton}{subgroups.button}<button onClick={()=>setChangesOpen(true)}>Изменения</button>{pdfUrl && <a href={pdfUrl} target="_blank" rel="noreferrer">PDF</a>}</div>
       <span className="footer-note">Расписание от {data.sourceDate}</span>
     </footer>
 
     <Dialog open={statusOpen} onOpenChange={setStatusOpen}><DialogContent className="changes-dialog">
       <DialogTitle>Актуальность расписания</DialogTitle>
-      <DialogDescription>Сервер сам скачивает PDF с сайта ВМК, находит 114 группу и публикует пары. Телефон подхватывает их при открытии и заменяет старые пары — смотреть PDF вручную не нужно.</DialogDescription>
+      <DialogDescription>Сервер сам скачивает PDF с сайта ВМК, разбирает все группы первого курса и публикует пары. Телефон подхватывает их при открытии и заменяет старые пары — смотреть PDF вручную не нужно.</DialogDescription>
       {syncError && <p className="status-error" role="alert">{syncError}</p>}
-      {saved.snapshot?.status==='error' && <p className="status-error">{saved.snapshot.error} Показана последняя проверенная версия.</p>}
-      {status.tone==='warn' && saved.snapshot?.status!=='error' && <p className="status-error">Последняя сверка с ВМК была давно: сервер проверки запускается с опозданием. Пары показаны по последней проверенной версии.</p>}
+      {saved.snapshot.status==='error' && <p className="status-error">{saved.snapshot.error} Показана последняя проверенная версия.</p>}
+      {status.tone==='warn' && saved.snapshot.status!=='error' && <p className="status-error">Последняя сверка с ВМК была давно: сервер проверки запускается с опозданием. Пары показаны по последней проверенной версии.</p>}
       <dl className="status-list">
-        <div><dt>Последняя сверка с ВМК</dt><dd>{stamp(saved.snapshot?.checkedAt || null)}</dd></div>
-        <div><dt>Последняя попытка</dt><dd>{stamp(saved.snapshot?.attemptedAt || null)}</dd></div>
+        <div><dt>Последняя сверка с ВМК</dt><dd>{stamp(saved.snapshot.checkedAt || null)}</dd></div>
+        <div><dt>Последняя попытка</dt><dd>{stamp(saved.snapshot.attemptedAt || null)}</dd></div>
         <div><dt>Получено телефоном</dt><dd>{saved.syncedAt?stamp(saved.syncedAt):'ещё нет'}</dd></div>
         <div><dt>Расписание на сайте ВМК от</dt><dd>{data.sourceDate}</dd></div>
         <div><dt>Без интернета</dt><dd>{offlineReady?'работает':'ещё не готово'}</dd></div>
@@ -286,6 +301,16 @@ export default function Home() {
     </DialogContent></Dialog>
     {homework.dialogs}
     {subgroups.dialog}
-    <Dialog open={changesOpen} onOpenChange={setChangesOpen}><DialogContent className="changes-dialog"><DialogTitle>Что изменилось</DialogTitle><DialogDescription>Сравнение с предыдущей версией на этом устройстве.</DialogDescription>{saved.changes.map(change=><div className="change-item" key={change.id}><strong>{dayNames[change.day]}, {change.start}{change.title?` · ${change.title}`:''}</strong>{change.details?.length ? <ul>{change.details.map(d=><li key={d}>{d}</li>)}</ul> : <>{change.before && <p><span>Было</span>{change.before}</p>}{change.after && <p><span>Стало</span>{change.after}</p>}</>}</div>)}</DialogContent></Dialog>
+    <Dialog open={changesOpen} onOpenChange={setChangesOpen}><DialogContent className="changes-dialog"><DialogTitle>Изменения · группа {groupName}</DialogTitle><DialogDescription>Сервер сравнивает каждую новую версию PDF с предыдущей и записывает, что поменялось.</DialogDescription>
+      {groupHistory.length ? groupHistory.map(entry=><section className="history-entry" key={entry.detectedAt}>
+        <h4>Расписание от {entry.date}{entry.previousDate && entry.previousDate!==entry.date?` (было от ${entry.previousDate})`:''}</h4>
+        <small>замечено {stamp(entry.detectedAt)}</small>
+        {(entry.changes[groupName]||[]).length ? entry.changes[groupName].map(change=><div className="change-item" key={change.id}><strong>{dayNames[change.day]}, {change.start}{change.title?` · ${change.title}`:''}</strong><ul>{(change.details||[]).map(d=><li key={d}>{d}</li>)}</ul></div>)
+          : <p className="personal-hint">{entry.pdfChanged?'PDF обновлён, но у этой группы ничего не поменялось.':'Поменялась только дата на сайте ВМК, сам PDF тот же.'}</p>}
+      </section>) : <p className="personal-hint">С момента запуска проверки ВМК расписание не менял. Сейчас на сайте версия от {data.sourceDate}.</p>}
+    </DialogContent></Dialog>
+    <Dialog open={groupsOpen} onOpenChange={setGroupsOpen}><DialogContent className="changes-dialog"><DialogTitle>Группа</DialogTitle><DialogDescription>Все группы первого курса из PDF ВМК, доступны и без интернета.</DialogDescription>
+      <div className="group-grid">{Object.keys(table.groups).sort().map(name=><button key={name} aria-pressed={name===groupName} onClick={()=>setGroup(name)}>{name}</button>)}</div>
+    </DialogContent></Dialog>
   </div>;
 }

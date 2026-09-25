@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {readFile} from 'node:fs/promises';
 import {dayGlance,focusDate,lessonsOn,roomFor} from '../lib/day-glance.mjs';
+import {groupSchedule} from '../lib/schedule-model.mjs';
 
 const snapshot=JSON.parse(await readFile(new URL('./fixtures/source.json',import.meta.url),'utf8'));
-const schedule=snapshot.schedule;
+const schedule=groupSchedule(snapshot.schedule,'114');
 
 test('current day distinguishes first class, lesson, break and finish at exact boundaries',()=>{
   const before=dayGlance(schedule,'2026-09-25','08:50');

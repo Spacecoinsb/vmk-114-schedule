@@ -1,4 +1,4 @@
-import {useEffect,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {Moon,Sun,NotebookPen,Check} from 'lucide-react';
 import {Dialog,DialogContent,DialogTitle,DialogDescription} from './ui/dialog';
 
@@ -14,20 +14,40 @@ export function ThemeButton() {
   return <button className="icon-button" aria-label={dark?'Светлая тема':'Тёмная тема'} title={dark?'Светлая тема':'Тёмная тема'} onClick={toggle}>{dark?<Sun size={17}/>:<Moon size={17}/>}</button>;
 }
 
-type Task={id:string;date:string;subject:string;text:string;done:boolean};
+export type Task={id:string;date:string;subject:string;text:string;done:boolean};
 const key='vmk114-homework-v1';
 function load():Task[]{try{const data=JSON.parse(localStorage.getItem(key)||'[]');return Array.isArray(data)?data.filter(t=>t&&typeof t.id==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(t.date)&&typeof t.subject==='string'&&typeof t.text==='string'&&typeof t.done==='boolean'):[];}catch{return [];}}
-export function useHomework(){
-  const [tasks,setTasks]=useState<Task[]>(load),[editing,setEditing]=useState<Task|null>(null),[listOpen,setListOpen]=useState(false),[error,setError]=useState('');
-  function save(next:Task[]){try{localStorage.setItem(key,JSON.stringify(next));setTasks(next);setError('');return true;}catch{setError('Не удалось сохранить задание. Освободи место на устройстве и попробуй ещё раз.');return false;}}
-  function open(date:string,id:string,subject:string){setError('');setEditing(tasks.find(t=>t.id===date+':'+id)||{id:date+':'+id,date,subject,text:'',done:false});}
+const shortDate=(date:string)=>new Date(date+'T12:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
+
+// Homework lives inside the lesson row; the list dialog only jumps to it.
+export function useHomework(onPick:(date:string,lessonId:string)=>void){
+  const [tasks,setTasks]=useState<Task[]>(load),[editing,setEditing]=useState(''),[listOpen,setListOpen]=useState(false),[error,setError]=useState('');
+  function write(next:Task[]){try{localStorage.setItem(key,JSON.stringify(next));setTasks(next);setError('');return true;}catch{setError('Не удалось сохранить. Освободи место на устройстве.');return false;}}
+  function save(task:Task){const other=tasks.filter(t=>t.id!==task.id);return write(task.text.trim()?[...other,{...task,text:task.text.trim()}]:other);}
+  function toggle(id:string){write(tasks.map(t=>t.id===id?{...t,done:!t.done}:t));}
   const pending=tasks.filter(t=>!t.done).length;
-  const dialogs=<>
-    <Dialog open={listOpen} onOpenChange={setListOpen}><DialogContent className="changes-dialog"><DialogTitle>Задания{pending?` · ${pending}`:''}</DialogTitle><DialogDescription>Все записи хранятся только на этом устройстве и доступны без сети.</DialogDescription>{tasks.length?[...tasks].sort((a,b)=>Number(a.done)-Number(b.done)||a.date.localeCompare(b.date)).map(task=><div className="task-list-row" key={task.id}><button className={'task-check '+(task.done?'done':'')} aria-label={task.done?'Отметить невыполненным':'Отметить выполненным'} onClick={()=>save(tasks.map(t=>t.id===task.id?{...t,done:!t.done}:t))}>{task.done&&<Check size={14}/>}</button><button className="task-open" onClick={()=>{setListOpen(false);setEditing(task);setError('');}}><small>{new Date(task.date+'T12:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'short'})} · {task.subject}</small><span className={task.done?'task-done':''}>{task.text}</span></button></div>):<p className="personal-hint">Нажми на значок блокнота в карточке пары, чтобы записать домашнее задание или вопрос преподавателю.</p>}{error&&<p role="alert">{error}</p>}</DialogContent></Dialog>
-    <Dialog open={!!editing} onOpenChange={open=>{if(!open)setEditing(null);}}><DialogContent><DialogTitle>К этой паре</DialogTitle><DialogDescription>{editing?.subject} · {editing&&new Date(editing.date+'T12:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'long'})}</DialogDescription>{editing&&<form onSubmit={event=>{event.preventDefault();const other=tasks.filter(t=>t.id!==editing.id);if(save(editing.text.trim()?[...other,{...editing,text:editing.text.trim()}]:other))setEditing(null);}}><label className="task-label" htmlFor="homework-text">Домашнее задание или заметка</label><textarea id="homework-text" rows={5} maxLength={4000} value={editing.text} onChange={event=>setEditing({...editing,text:event.target.value})} placeholder="Что подготовить к занятию…"/><label className="task-toggle"><input type="checkbox" checked={editing.done} onChange={event=>setEditing({...editing,done:event.target.checked})}/>Выполнено</label><p className="personal-hint">Запись относится только к этой дате. Пустой текст удаляет запись.</p>{error&&<p role="alert">{error}</p>}<button className="save-task" type="submit">Сохранить</button></form>}</DialogContent></Dialog>
-  </>;
-  return {tasks,open,dialogs,listButton:<button onClick={()=>{setError('');setListOpen(true);}}>Задания{pending?` · ${pending}`:''}</button>};
+  const dialogs=<Dialog open={listOpen} onOpenChange={setListOpen}><DialogContent className="changes-dialog"><DialogTitle>Задания{pending?` · ${pending}`:''}</DialogTitle><DialogDescription>Хранятся только на этом устройстве и доступны без сети.</DialogDescription>{tasks.length?[...tasks].sort((a,b)=>Number(a.done)-Number(b.done)||a.date.localeCompare(b.date)).map(task=><div className="task-list-row" key={task.id}><button className={'task-check '+(task.done?'done':'')} aria-label={task.done?'Отметить невыполненным':'Отметить выполненным'} onClick={()=>toggle(task.id)}>{task.done&&<Check size={14}/>}</button><button className="task-open" onClick={()=>{setListOpen(false);const lessonId=task.id.slice(11);onPick(task.date,lessonId);setEditing(task.id);}}><small>{shortDate(task.date)} · {task.subject}</small><span className={task.done?'task-done':''}>{task.text}</span></button></div>):<p className="personal-hint">Нажми «+ ДЗ» у пары, чтобы записать задание.</p>}{error&&<p role="alert">{error}</p>}</DialogContent></Dialog>;
+  return {tasks,save,toggle,editing,setEditing,error,dialogs,listButton:<button onClick={()=>{setError('');setListOpen(true);}}>Задания{pending?` · ${pending}`:''}</button>};
 }
-export function HomeworkButton({text,done,onClick}:{text?:string;done?:boolean;onClick:()=>void}){
-  return <button className={'homework-button '+(text?'has-task':'')} title={text?'Открыть задание':'Добавить задание'} aria-label={text?'Открыть задание':'Добавить задание'} onClick={onClick}>{done?<Check size={14}/>:<NotebookPen size={14}/>}<span>{text?(done?'Готово':'Есть задание'):''}</span></button>;
+
+export function HomeworkButton({task,onClick}:{task?:Task;onClick:()=>void}){
+  return <button className={'homework-button '+(task?'has-task':'')} aria-label={task?'Открыть задание':'Добавить задание'} onClick={onClick}>{task?.done?<Check size={13}/>:task?<NotebookPen size={13}/>:null}<span>{task?(task.done?'Сделано':'ДЗ'):'+ ДЗ'}</span></button>;
+}
+
+export function HomeworkEditor({task,onSave,onToggle,onClose,error}:{task:Task;onSave:(t:Task)=>boolean;onToggle:()=>void;onClose:()=>void;error:string}){
+  const [text,setText]=useState(task.text);
+  const area=useRef<HTMLTextAreaElement>(null);
+  useEffect(()=>{area.current?.focus();setTimeout(()=>area.current?.scrollIntoView({block:'center',behavior:'smooth'}),250);},[]);
+  function done(){if(onSave({...task,text}))onClose();}
+  return <div className="homework-editor">
+    <textarea ref={area} aria-label="Домашнее задание" rows={3} maxLength={4000} value={text} onChange={e=>setText(e.target.value)} placeholder="Что задали…" onKeyDown={e=>{if(e.key==='Escape')onClose();}}/>
+    {error&&<p role="alert" className="personal-hint">{error}</p>}
+    <div className="homework-actions">
+      {task.text&&<label className="task-toggle"><input type="checkbox" checked={task.done} onChange={onToggle}/>Сделано</label>}
+      <span/>
+      {task.text&&<button className="text-button danger" onClick={()=>{onSave({...task,text:''});onClose();}}>Удалить</button>}
+      <button className="text-button" onClick={onClose}>Отмена</button>
+      <button className="small-primary" onClick={done}>Сохранить</button>
+    </div>
+  </div>;
 }

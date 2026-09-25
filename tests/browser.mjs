@@ -189,7 +189,7 @@ try {
 
   await context.setOffline(true);
   await page.reload({waitUntil:'load'});
-  await page.getByText('Без интернета · сохранённая копия',{exact:true}).waitFor();
+  await page.getByText('Без интернета',{exact:true}).waitFor();
   await page.getByRole('button',{name:'Открыть задание',exact:true}).click();
   assert.equal(await page.getByLabel('Домашнее задание',{exact:true}).inputValue(),'Подготовить вопросы к занятию');
   await page.keyboard.press('Escape');
@@ -209,7 +209,7 @@ try {
   console.log('PASS genuine browser offline mode: full reload, 21 displayed lessons and saved PDF');
   await context.setOffline(false);
   await page.evaluate(()=>window.dispatchEvent(new Event('online')));
-  await page.getByText(/^Сверено с ВМК|^Проверено|^Проверка/).waitFor();
+  await page.getByText(/^Сверено|^Проверено|^Проверка/).waitFor();
 
   // Simulate the server publishing a changed, validated timetable.
   served=structuredClone(snapshot);served.attemptedAt=served.checkedAt=new Date(Date.parse(snapshot.attemptedAt)+1000).toISOString();
@@ -239,7 +239,7 @@ try {
   assert.equal(await page.locator('.room').filter({hasText:'999'}).count(),1);
   console.log('PASS network, malformed data and source failure retain timetable and show honest status');
 
-  await context.setOffline(true);await page.reload();await page.getByText('Без интернета · сохранённая копия',{exact:true}).waitFor();
+  await context.setOffline(true);await page.reload();await page.getByText('Без интернета',{exact:true}).waitFor();
   await page.getByRole('button',{name:'Неделя',exact:true}).click();
   assert.equal(await page.locator('.room').filter({hasText:'999'}).count(),1);
   assert.deepEqual(errors,[]);await context.close();

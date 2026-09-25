@@ -160,10 +160,11 @@ export default function Home() {
   const selectedLessons = data.lessons.filter(l=>isDisplayedLesson(l) && l.day===weekday(selected) && active(l,selected));
   const status = verification(saved.snapshot);
   const glance = view==='day' && (selected===today || selected===focus) ? dayGlance(data,today,clock,subgroups.selected) : null;
-  const relative = selected===today ? 'Сегодня' : selected===addDays(today,1) ? 'Завтра' : selected===addDays(today,-1) ? 'Вчера' : dayNames[weekday(selected)];
+  // Short enough for one line: "Завтра, 28 сентября", "Вс, 4 октября".
+  const relative = selected===today ? 'Сегодня' : selected===addDays(today,1) ? 'Завтра' : selected===addDays(today,-1) ? 'Вчера' : shortDays[weekday(selected)];
   const checkedAgo = ago(saved.snapshot.checkedAt || null);
-  const statusText = !online ? 'Без интернета · сохранённая копия' : busy ? 'Получаем обновления…' : syncError ? 'Не удалось получить обновления'
-    : saved.snapshot.status==='error' ? 'Не удалось проверить ВМК' : checkedAgo ? `Сверено с ВМК ${checkedAgo}` : status.title;
+  const statusText = !online ? 'Без интернета' : busy ? 'Обновляем…' : syncError ? 'Не удалось получить обновления'
+    : saved.snapshot.status==='error' ? 'Не удалось проверить ВМК' : checkedAgo ? `Сверено ${checkedAgo}` : status.title;
   const tone = !online ? 'offline' : syncError ? 'warn' : status.tone;
 
   function go(date:string,direction=0) {
@@ -300,14 +301,14 @@ export default function Home() {
     </CampusMap></Suspense> : <>
     <div className="heading">
       <div className="heading-text">
-        <h1>{view==='day'?<>{relative!==dayNames[weekday(selected)] ? `${relative}, ` : `${dayNames[weekday(selected)]}, `}{formatDate(selected)}</>:`${formatDate(monday,{day:'numeric',month:'short'})} — ${formatDate(week[6],{day:'numeric',month:'short'})}`}</h1>
+        <h1>{view==='day'?<>{relative}, {formatDate(selected)}</>:`${formatDate(monday,{day:'numeric',month:'short'})} — ${formatDate(week[6],{day:'numeric',month:'short'})}`}</h1>
         <p className="eyebrow">
-          {view==='day' && <span>{lessonCount(selectedLessons.length)}</span>}
+          {view==='day' && <span className="count">{lessonCount(selectedLessons.length)}</span>}
+          {pinned!==null && <button className="text-button" onClick={()=>go(focus,focus>selected?1:-1)}>{focus===today?'Сегодня':'К ближайшим'}</button>}
           <button className={`status ${tone}`} onClick={()=>setStatusOpen(true)} aria-label={`Статус проверки: ${statusText}`}>
             <span className="status-icon">{!online?<WifiOff size={12}/>:busy?<RefreshCw size={12} className="spin"/>:<span className="status-dot"/>}</span>
             <span aria-live="polite">{statusText}</span>
           </button>
-          {pinned!==null && <button className="text-button" onClick={()=>go(focus,focus>selected?1:-1)}>{focus===today?'Сегодня':'К ближайшим'}</button>}
         </p>
       </div>
       <div className="view-switch" role="group" aria-label="Вид расписания"><button aria-pressed={view==='day'} onClick={()=>setView('day')}>День</button><button aria-pressed={view==='week'} onClick={()=>setView('week')}>Неделя</button></div>

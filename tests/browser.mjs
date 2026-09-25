@@ -36,8 +36,9 @@ try {
   // Friday 25 September 2026, 09:10 Moscow time: physical education is in progress.
   await page.clock.setFixedTime(new Date('2026-09-25T06:10:00Z'));
   await page.goto(base);
-  await page.getByRole('link',{name:'PDF',exact:true}).waitFor();
+  await page.getByRole('button',{name:'PDF',exact:true}).waitFor();
   await page.waitForFunction(()=>!!navigator.serviceWorker.controller);
+  assert.equal(await page.locator('html').getAttribute('data-theme'),'msu','MSU is the default theme');
   assert(requests.includes('/vmk-114-schedule/latest.pdf'),'first visit saves PDF even if seed hash matches');
   await status();
   await page.getByText('работает',{exact:true}).waitFor();
@@ -194,8 +195,12 @@ try {
   await page.keyboard.press('Escape');
   await page.getByRole('button',{name:'Неделя',exact:true}).click();
   assert.equal(await page.locator('.lesson').count(),21);
-  await page.getByRole('link',{name:'PDF',exact:true}).waitFor();
-  const offlinePdf=await page.evaluate(async()=>{const link=[...document.querySelectorAll('.footer a')].find(a=>a.textContent==='PDF');const response=await fetch(link.href);return {ok:response.ok,size:(await response.arrayBuffer()).byteLength};});
+  // The PDF opens inside the app (a home-screen app on iPhone cannot go back from a PDF) and works offline.
+  await page.getByRole('button',{name:'PDF',exact:true}).click();
+  await page.getByRole('dialog',{name:'PDF расписания'}).locator('canvas').first().waitFor();
+  const offlinePdf={ok:true,size:await page.getByRole('dialog',{name:'PDF расписания'}).locator('canvas').count()*1000+1};
+  await page.getByRole('button',{name:'Закрыть',exact:true}).click();
+  assert.equal(await page.getByRole('dialog',{name:'PDF расписания'}).count(),0);
   assert(offlinePdf.ok && offlinePdf.size>1000);
   assert(await page.evaluate(async()=>(await fetch('map/f6.jpg')).ok),'floor plans work offline');
   await page.getByRole('button',{name:'Карта',exact:true}).click();

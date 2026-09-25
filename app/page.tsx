@@ -6,6 +6,7 @@ import {ThemeButton,HomeworkButton,HomeworkEditor,useHomework,type Task} from '@
 import {useSubgroups} from '@/components/subgroups';
 import {dayGlance, duration, focusDate, minutes, roomFor} from '@/lib/day-glance.mjs';
 import {findRoom} from '@/lib/map-route.mjs';
+import {PdfViewer} from '@/components/pdf-viewer';
 // three.js is loaded only when the map is opened.
 const CampusMap = lazy(() => import('@/components/campus-map').then(m => ({default:m.CampusMap})));
 import seed from '@/public/source.json';
@@ -136,7 +137,7 @@ export default function Home() {
   const [tab,setTab] = useState<'schedule'|'map'>('schedule'), [mapTarget,setMapTarget] = useState<{to:string; from:string|null; n:number}|null>(null);
   const [view,setView] = useState('day'), [busy,setBusy] = useState(false), [online,setOnline] = useState(navigator.onLine);
   const [message,setMessage] = useState(''), [syncError,setSyncError] = useState(''), [offlineReady,setOfflineReady] = useState(false);
-  const [changesOpen,setChangesOpen] = useState(false), [statusOpen,setStatusOpen] = useState(false), [pdfUrl,setPdfUrl] = useState(''), [pdfError,setPdfError] = useState('');
+  const [changesOpen,setChangesOpen] = useState(false), [statusOpen,setStatusOpen] = useState(false), [pdfUrl,setPdfUrl] = useState(''), [pdfOpen,setPdfOpen] = useState(false), [pdfError,setPdfError] = useState('');
   const checking = useRef(false), lastAttempt = useRef(0), touch = useRef<{x:number;y:number}|null>(null);
   const [group,setGroupState] = useState(loadGroup), [groupsOpen,setGroupsOpen] = useState(false);
   const table = saved.snapshot.schedule;
@@ -255,6 +256,7 @@ export default function Home() {
     window.addEventListener('keydown',onKey); return()=>window.removeEventListener('keydown',onKey);
   });
 
+  const closePdf = React.useCallback(() => setPdfOpen(false), []);
   // The class before this one tells where the walk starts.
   function openRoom(room:string, date=today, start='') {
     const to=findRoom(room);
@@ -329,7 +331,7 @@ export default function Home() {
     </main>
 
     <footer className="footer">
-      <div className="footer-links">{homework.listButton}{subgroups.button}<button onClick={()=>setChangesOpen(true)}>Изменения</button>{pdfUrl && <a href={pdfUrl} target="_blank" rel="noreferrer">PDF</a>}</div>
+      <div className="footer-links">{homework.listButton}{subgroups.button}<button onClick={()=>setChangesOpen(true)}>Изменения</button>{pdfUrl && <button onClick={()=>setPdfOpen(true)}>PDF</button>}</div>
     </footer>
     </>}
 
@@ -350,6 +352,7 @@ export default function Home() {
       <button className="save-task" onClick={()=>refresh(true)} disabled={busy || !online}><RefreshCw size={15} className={busy?'spin':''}/> {busy?'Обновляем…':'Обновить'}</button>
       <div className="source-links"><a href="https://github.com/Spacecoinsb/vmk-114-schedule/actions/workflows/pages.yml" target="_blank" rel="noreferrer">История проверок<ArrowUpRight size={14}/></a></div>
     </DialogContent></Dialog>
+    {pdfOpen && pdfUrl && <PdfViewer url={pdfUrl} onClose={closePdf}/>}
     {homework.dialogs}
     {subgroups.dialog}
     <Dialog open={changesOpen} onOpenChange={setChangesOpen}><DialogContent className="changes-dialog"><DialogTitle>Изменения · группа {groupName}</DialogTitle><DialogDescription>Сервер сравнивает каждую новую версию PDF с предыдущей и записывает, что поменялось.</DialogDescription>

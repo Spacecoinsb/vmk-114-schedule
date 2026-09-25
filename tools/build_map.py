@@ -76,6 +76,15 @@ STAIRS = {
 }
 STAIR_NAMES = 'АБВГДЕ'
 
+# Lift shafts (crossed squares on the plans), next to the stairwells.
+LIFTS = {
+  1: [(328, 645), (409, 645), (711, 641), (1286, 641), (1587, 645), (1668, 645)],
+  2: [(340, 598), (419, 598), (715, 598), (1282, 598), (1576, 598), (1657, 598)],
+  5: [(290, 583), (381, 583), (696, 583), (1300, 583), (1614, 583), (1706, 583)],
+  6: [(246, 527), (337, 527), (1298, 520), (1629, 527), (1720, 527)],
+  7: [(246, 527), (337, 527), (667, 520), (1298, 520), (1629, 527), (1720, 527)],
+}
+
 PLACES = {
   1: [('wc-m', 'Туалет М', 'wc', 507, 647), ('wc-f', 'Туалет Ж', 'wc', 1491, 641),
       ('reading', 'Читальный зал', 'place', 1003, 527), ('buffet-n', 'Северный буфет (0 этаж)', 'food', 381, 797),
@@ -172,6 +181,8 @@ def main():
         stairs = [{'id': STAIR_NAMES[i], **dict(zip('xy', R(x, y))), 'box': RB((x - 13, y - 22, x + 13, y + 22))} for i, (x, y) in enumerate(STAIRS[floor])]
         places = [{'id': pid, 'name': name, 'kind': kind, **dict(zip('xy', R(x, y))), **({} if pid in ICON_ONLY else {'box': RB(box(x, y))}),
                    **({'note': NOTES[pid]} if pid in NOTES else {})} for pid, name, kind, x, y in PLACES[floor]]
+        places += [{'id': f'lift-{i + 1}', 'name': 'Лифт', 'kind': 'lift', **dict(zip('xy', R(x, y))), 'box': RB((x - 11, y - 22, x + 11, y + 22))}
+                   for i, (x, y) in enumerate(LIFTS[floor])]
         data['floors'].append({
             'floor': floor, 'image': f'map/f{floor}.jpg', 'imageBox': RB(CROP[floor]),
             'footprint': [RB(b) for b in FOOTPRINT[floor]], 'rooms': rooms, 'stairs': stairs, 'places': places,

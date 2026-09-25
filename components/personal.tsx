@@ -20,7 +20,8 @@ export function applyTheme(choice:string){
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content',theme[3][0]);
 }
 export function ThemeButton() {
-  const [choice,setChoice]=useState(()=>{try{return legacy(localStorage.getItem(themeKey))||'auto';}catch{return 'auto';}});
+  // MSU is the default look; anyone can switch.
+  const [choice,setChoice]=useState(()=>{try{return legacy(localStorage.getItem(themeKey))||'msu';}catch{return 'msu';}});
   const [open,setOpen]=useState(false);
   useEffect(()=>{
     applyTheme(choice);

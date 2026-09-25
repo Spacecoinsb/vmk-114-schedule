@@ -351,7 +351,7 @@ export default function Home() {
       </dl>
       {pdfError && <p className="personal-hint">{pdfError}</p>}
       <button className="save-task" onClick={()=>refresh(true)} disabled={busy || !online}><RefreshCw size={15} className={busy?'spin':''}/> {busy?'Обновляем…':'Обновить'}</button>
-      <div className="source-links"><a href="https://github.com/Spacecoinsb/vmk-114-schedule/actions/workflows/pages.yml" target="_blank" rel="noreferrer">История проверок<ArrowUpRight size={14}/></a></div>
+      <div className="source-links"><a href={`https://github.com/${import.meta.env.VITE_REPO || 'mgucs/vmk-schedule'}/actions/workflows/pages.yml`} target="_blank" rel="noreferrer">История проверок<ArrowUpRight size={14}/></a></div>
     </DialogContent></Dialog>
     {pdfOpen && pdfUrl && <PdfViewer url={pdfUrl} onClose={closePdf}/>}
     {homework.dialogs}

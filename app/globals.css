@@ -82,9 +82,12 @@ h1 { font-size:30px; line-height:1.25; letter-spacing:-1px; font-weight:650; mar
 .time strong { font-size:15px; font-weight:600; }
 .time span { font-size:12px; color:var(--muted-foreground); margin-top:3px; }
 .lesson-card { background:white; border:1px solid var(--border); border-radius:14px; padding:17px 20px; min-width:0; }
+.lesson.lecture .lesson-card { border-left:4px solid var(--primary); padding-left:17px; background:linear-gradient(90deg,var(--accent),var(--card) 40%); }
 .lesson.current .lesson-card { border-color:#a2b3df; box-shadow:inset 3px 0 var(--primary); }
+.lesson.current.lecture .lesson-card { border-left-color:var(--primary); }
 .lesson-top { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:7px; min-height:16px; }
 .type { font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--muted-foreground); }
+.lesson.lecture .type { display:inline-flex; align-items:center; gap:5px; padding:4px 7px; border-radius:6px; background:var(--accent); color:var(--primary); font-weight:750; letter-spacing:.05em; }
 .tags { display:flex; flex-wrap:wrap; gap:4px; }
 .badge { color:var(--primary); background:#eef2ff; font-size:10px; padding:2px 6px; border-radius:5px; }
 .lesson-card h3 { font-size:17px; line-height:1.35; font-weight:600; letter-spacing:-.25px; margin:0 0 11px; overflow-wrap:anywhere; }
@@ -203,6 +206,7 @@ textarea { resize:vertical; width:100%; background:var(--background); border:1px
 .task-done { text-decoration:line-through; opacity:.65; }
 [data-theme=dark] { color-scheme:dark; --background:#11151c; --foreground:#e2e7f0; --card:#1a202b; --card-foreground:#e2e7f0; --popover:#1a202b; --popover-foreground:#e2e7f0; --primary:#a4bbff; --primary-foreground:#162445; --muted:#252e3c; --muted-foreground:#9ba8bc; --accent:#273754; --accent-foreground:#b5c9ff; --border:#303a4a; --input:#303a4a; --ring:#a4bbff; }
 [data-theme=dark] .lesson-card, [data-theme=dark] .quiet-button { background:var(--card); }
+[data-theme=dark] .lesson.lecture .lesson-card { background:linear-gradient(90deg,var(--accent),var(--card) 40%); }
 [data-theme=dark] .view-switch { background:var(--muted); }
 [data-theme=dark] .view-switch button[aria-pressed=true] { background:#3b4860; }
 [data-theme=dark] .day-button[aria-pressed=true] { background:#354b72; }

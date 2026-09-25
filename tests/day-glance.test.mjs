@@ -27,6 +27,10 @@ test('selected subgroup determines the room; unknown subgroup never guesses',()=
   assert.equal(roomFor(lesson,{'Практикум на ЭВМ':'Неизвестный преподаватель'}),'');
 });
 test('date restrictions and non-teaching days are respected',()=>{
+  assert.equal(lessonsOn(schedule,'2026-09-23').length,3,'interfaculty courses are hidden');
+  const wednesday=dayGlance(schedule,'2026-09-23','15:00');
+  assert.equal(wednesday.kind,'done');
+  assert.match(wednesday.detail,/Завтра: Алгебра и геометрия · 10:30/);
   assert.equal(lessonsOn(schedule,'2026-09-26').length,3);
   assert.equal(lessonsOn(schedule,'2026-10-03').length,2,'September-only lecture must not appear in October');
   assert.equal(dayGlance(schedule,'2026-09-27','12:00').kind,'done');

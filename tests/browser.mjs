@@ -36,7 +36,11 @@ try {
   await page.waitForFunction(()=>!!navigator.serviceWorker.controller);
   assert(requests.includes('/vmk-114-schedule/latest.pdf'),'first visit saves PDF even if seed hash matches');
   await page.getByRole('button',{name:'Неделя',exact:true}).click();
-  assert.equal(await page.locator('.lesson').count(),22);
+  assert.equal(await page.locator('.lesson').count(),21);
+  assert.equal(await page.getByText('Межфакультетские курсы',{exact:true}).count(),0);
+  assert(await page.locator('.lesson.lecture').count()>0);
+  assert.equal(await page.locator('.lesson.lecture .type svg').count(),await page.locator('.lesson.lecture').count());
+  assert.equal(await page.locator('.lesson.lecture .lesson-card').first().evaluate(el=>getComputedStyle(el).borderLeftWidth),'4px');
   assert.equal(await page.locator('.room').filter({hasText:'613'}).count(),1);
   assert.equal(await page.locator('.room').filter({hasText:'682'}).count(),1);
   assert.equal(await page.getByText('Как установить на iPhone').count(),0);
@@ -119,10 +123,10 @@ try {
   assert.equal(await page.getByLabel('Домашнее задание или заметка',{exact:true}).inputValue(),'Подготовить вопросы к занятию');
   await page.keyboard.press('Escape');
   await page.getByRole('button',{name:'Неделя',exact:true}).click();
-  assert.equal(await page.locator('.lesson').count(),22);
+  assert.equal(await page.locator('.lesson').count(),21);
   const offlinePdf=await page.evaluate(async()=>{const link=document.querySelector('.footer a');const response=await fetch(link.href);return {ok:response.ok,size:(await response.arrayBuffer()).byteLength};});
   assert(offlinePdf.ok && offlinePdf.size>1000);
-  console.log('PASS genuine browser offline mode: full reload, 22 lessons and saved PDF');
+  console.log('PASS genuine browser offline mode: full reload, 21 displayed lessons and saved PDF');
   await context.setOffline(false);
   await page.getByRole('button',{name:'Обновить',exact:true}).waitFor();
   await page.waitForFunction(()=>!document.querySelector('.refresh-button').disabled);

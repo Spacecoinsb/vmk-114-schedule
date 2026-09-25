@@ -1,7 +1,7 @@
 import {useEffect, useRef, useState} from 'react';
-import {ArrowUpRight, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, RefreshCw, WifiOff, X} from 'lucide-react';
+import {ArrowUpRight, BookOpen, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, RefreshCw, WifiOff, X} from 'lucide-react';
 import {Dialog, DialogContent, DialogTitle, DialogDescription} from '@/components/ui/dialog';
-import {cleanTitle, diffSchedules, teacherRows, validSchedule, validSnapshot, verification} from '@/lib/schedule-model.mjs';
+import {cleanTitle, diffSchedules, isDisplayedLesson, teacherRows, validSchedule, validSnapshot, verification} from '@/lib/schedule-model.mjs';
 import {ThemeButton,HomeworkButton,useHomework} from '@/components/personal';
 import {useSubgroups} from '@/components/subgroups';
 import {dayGlance} from '@/lib/day-glance.mjs';
@@ -59,10 +59,10 @@ function LessonCard({lesson,date,today,clock,changed,next,showCountdown,task,onT
   const rows = allRows.length>1 && matched.length ? matched : allRows;
   const missingTeacher = !!preferredTeacher && allRows.length>0 && lesson.type!=='lecture' && !matched.length;
   const note = lesson.rule?.dates ? 'Только '+lesson.rule.dates.map(d=>formatDate(d,{day:'numeric',month:'short'})).join(', ') : lesson.rule?.from ? 'С '+formatDate(lesson.rule.from) : '';
-  return <article className={`lesson ${now?'current':''}`}>
+  return <article className={`lesson ${lesson.type==='lecture'?'lecture':''} ${now?'current':''}`}>
     <div className="time"><strong>{lesson.start}</strong><span>{lesson.end}</span></div>
     <div className="lesson-card">
-      <div className="lesson-top"><span className="type">{typeNames[lesson.type]}</span><div className="tags">{now && showCountdown && <span className="badge">Сейчас · ещё {duration}</span>}{next && !now && showCountdown && <span className="badge">Через {duration}</span>}{changed && <span className="badge">Изменено</span>}<HomeworkButton text={task?.text} done={task?.done} onClick={onTask}/></div></div>
+      <div className="lesson-top"><span className="type">{lesson.type==='lecture' && <BookOpen size={13} aria-hidden="true"/>}{typeNames[lesson.type]}</span><div className="tags">{now && showCountdown && <span className="badge">Сейчас · ещё {duration}</span>}{next && !now && showCountdown && <span className="badge">Через {duration}</span>}{changed && <span className="badge">Изменено</span>}<HomeworkButton text={task?.text} done={task?.done} onClick={onTask}/></div></div>
       <h3>{cleanTitle(lesson)}</h3>
       {rows.map((row,i)=><div className="teacher-row" key={i}><span>{row.teacher}</span>{(row.room || (i===0 && lesson.room)) && <Room room={row.room || lesson.room} note={row.note}/>}</div>)}
       {!rows.length && lesson.room && <Room room={lesson.room}/>}
@@ -85,9 +85,9 @@ export default function Home() {
   const subgroups=useSubgroups(data.lessons);
   const monday = addDays(selected,-weekday(selected));
   const week = Array.from({length:7},(_,i)=>addDays(monday,i));
-  const todayLessons = data.lessons.filter(l=>l.day===weekday(today) && active(l,today)).sort((a,b)=>a.start.localeCompare(b.start));
+  const todayLessons = data.lessons.filter(l=>isDisplayedLesson(l) && l.day===weekday(today) && active(l,today)).sort((a,b)=>a.start.localeCompare(b.start));
   const nextId = clock ? todayLessons.find(l=>l.end>clock)?.id : undefined;
-  const selectedLessons = data.lessons.filter(l=>l.day===weekday(selected) && active(l,selected));
+  const selectedLessons = data.lessons.filter(l=>isDisplayedLesson(l) && l.day===weekday(selected) && active(l,selected));
   const status = verification(saved.snapshot);
   const statusTitle = !online ? 'Без интернета' : busy ? 'Получаем обновления…' : syncError ? 'Не удалось получить обновления' : status.title;
   const tone = !online ? 'offline' : syncError ? 'warn' : status.tone;
@@ -162,7 +162,7 @@ export default function Home() {
   },[]);
 
   function renderDay(date:string,weekly=false) {
-    const list=data.lessons.filter(l=>l.day===weekday(date) && active(l,date));
+    const list=data.lessons.filter(l=>isDisplayedLesson(l) && l.day===weekday(date) && active(l,date));
     return <section className={weekly?'week-day':''} key={date} aria-label={formatDate(date)}>
       {weekly && <div className="day-title"><h2>{dayNames[weekday(date)]}{weekly && <span> · {formatDate(date,{day:'numeric',month:'short'})}</span>}</h2><span>{list.length?`${list.length} ${list.length===1?'пара':list.length<5?'пары':'пар'}`:'Выходной'}</span></div>}
       {list.length ? list.map(l=><LessonCard key={l.id} lesson={l} date={date} today={today} clock={clock} changed={saved.changes.some(c=>c.id===l.id)} next={date===today && l.id===nextId} showCountdown={view==='week'} task={homework.tasks.find(t=>t.id===date+':'+l.id)} onTask={()=>homework.open(date,l.id,cleanTitle(l))} preferredTeacher={subgroups.selected[cleanTitle(l)]}/>) : <div className="empty"><CalendarDays size={25}/><p>На этот день пар нет</p></div>}

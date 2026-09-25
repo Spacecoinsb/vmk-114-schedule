@@ -4,6 +4,7 @@ import {Dialog, DialogContent, DialogTitle, DialogDescription} from '@/component
 import {cleanTitle, diffSchedules, teacherRows, validSchedule, validSnapshot, verification} from '@/lib/schedule-model.mjs';
 import {ThemeButton,HomeworkButton,useHomework} from '@/components/personal';
 import {useSubgroups} from '@/components/subgroups';
+import {dayGlance} from '@/lib/day-glance.mjs';
 import seed from '@/public/source.json';
 
 type Lesson = {id:string; day:number; start:string; end:string; title:string; detail:string; room:string; type:string; raw:string; rule:{from?:string; dates?:string[]}|null};
@@ -48,7 +49,7 @@ function persist(value:Saved) {
 function Room({room,note=''}:{room:string; note?:string}) {
   return <span className="room" aria-label={`Аудитория ${room}${note?', '+note:''}`}>{room}{note && <span className="room-note">{note}</span>}</span>;
 }
-function LessonCard({lesson,date,today,clock,changed,next,task,onTask,preferredTeacher}:{lesson:Lesson;date:string;today:string;clock:string;changed:boolean;next:boolean;task?:{text:string;done:boolean};onTask:()=>void;preferredTeacher?:string}) {
+function LessonCard({lesson,date,today,clock,changed,next,showCountdown,task,onTask,preferredTeacher}:{lesson:Lesson;date:string;today:string;clock:string;changed:boolean;next:boolean;showCountdown:boolean;task?:{text:string;done:boolean};onTask:()=>void;preferredTeacher?:string}) {
   const now = date===today && clock>=lesson.start && clock<lesson.end;
   const minutes = (value:string) => Number(value.slice(0,2))*60+Number(value.slice(3));
   const remaining = clock ? minutes(now?lesson.end:lesson.start)-minutes(clock) : 0;
@@ -61,7 +62,7 @@ function LessonCard({lesson,date,today,clock,changed,next,task,onTask,preferredT
   return <article className={`lesson ${now?'current':''}`}>
     <div className="time"><strong>{lesson.start}</strong><span>{lesson.end}</span></div>
     <div className="lesson-card">
-      <div className="lesson-top"><span className="type">{typeNames[lesson.type]}</span><div className="tags">{now && <span className="badge">Сейчас · ещё {duration}</span>}{next && !now && <span className="badge">Через {duration}</span>}{changed && <span className="badge">Изменено</span>}<HomeworkButton text={task?.text} done={task?.done} onClick={onTask}/></div></div>
+      <div className="lesson-top"><span className="type">{typeNames[lesson.type]}</span><div className="tags">{now && showCountdown && <span className="badge">Сейчас · ещё {duration}</span>}{next && !now && showCountdown && <span className="badge">Через {duration}</span>}{changed && <span className="badge">Изменено</span>}<HomeworkButton text={task?.text} done={task?.done} onClick={onTask}/></div></div>
       <h3>{cleanTitle(lesson)}</h3>
       {rows.map((row,i)=><div className="teacher-row" key={i}><span>{row.teacher}</span>{(row.room || (i===0 && lesson.room)) && <Room room={row.room || lesson.room} note={row.note}/>}</div>)}
       {!rows.length && lesson.room && <Room room={lesson.room}/>}
@@ -90,6 +91,7 @@ export default function Home() {
   const status = verification(saved.snapshot);
   const statusTitle = !online ? 'Без интернета' : busy ? 'Получаем обновления…' : syncError ? 'Не удалось получить обновления' : status.title;
   const tone = !online ? 'offline' : syncError ? 'warn' : status.tone;
+  const glance = clock && selected===today && view==='day' ? dayGlance(data,today,clock,subgroups.selected) : null;
 
   async function savePdf(hash:string) {
     if (!('caches' in window)) throw Error('Сохранение PDF недоступно в этом браузере.');
@@ -163,7 +165,7 @@ export default function Home() {
     const list=data.lessons.filter(l=>l.day===weekday(date) && active(l,date));
     return <section className={weekly?'week-day':''} key={date} aria-label={formatDate(date)}>
       {weekly && <div className="day-title"><h2>{dayNames[weekday(date)]}{weekly && <span> · {formatDate(date,{day:'numeric',month:'short'})}</span>}</h2><span>{list.length?`${list.length} ${list.length===1?'пара':list.length<5?'пары':'пар'}`:'Выходной'}</span></div>}
-      {list.length ? list.map(l=><LessonCard key={l.id} lesson={l} date={date} today={today} clock={clock} changed={saved.changes.some(c=>c.id===l.id)} next={date===today && l.id===nextId} task={homework.tasks.find(t=>t.id===date+':'+l.id)} onTask={()=>homework.open(date,l.id,cleanTitle(l))} preferredTeacher={subgroups.selected[cleanTitle(l)]}/>) : <div className="empty"><CalendarDays size={25}/><p>На этот день пар нет</p></div>}
+      {list.length ? list.map(l=><LessonCard key={l.id} lesson={l} date={date} today={today} clock={clock} changed={saved.changes.some(c=>c.id===l.id)} next={date===today && l.id===nextId} showCountdown={view==='week'} task={homework.tasks.find(t=>t.id===date+':'+l.id)} onTask={()=>homework.open(date,l.id,cleanTitle(l))} preferredTeacher={subgroups.selected[cleanTitle(l)]}/>) : <div className="empty"><CalendarDays size={25}/><p>На этот день пар нет</p></div>}
     </section>;
   }
 
@@ -172,6 +174,7 @@ export default function Home() {
     <main>
       <div className="heading"><div><h1>{view==='day'?formatDate(selected):`${formatDate(monday,{day:'numeric',month:'short'})} — ${formatDate(week[6],{day:'numeric',month:'short'})}`}</h1><p className="eyebrow">{view==='day'?`${dayNames[weekday(selected)]} · ${selectedLessons.length ? `${selectedLessons.length} ${selectedLessons.length===1?'пара':selectedLessons.length<5?'пары':'пар'}`:'Без занятий'}`:'Расписание недели'}{selected!==today && <button className="return-today" onClick={()=>setSelected(today)}>Сегодня</button>}</p></div><div className="view-switch" role="group" aria-label="Вид расписания"><button aria-pressed={view==='day'} onClick={()=>setView('day')}>День</button><button aria-pressed={view==='week'} onClick={()=>setView('week')}>Неделя</button></div></div>
       <nav className={`date-navigation ${view==='week'?'weekly-navigation':''}`} aria-label="Выбрать день"><button className="icon-button" aria-label="Предыдущая неделя" onClick={()=>setSelected(addDays(selected,-7))}><ChevronLeft/></button>{view==='day'?week.map((date,i)=><button key={date} className={`day-button ${date===today?'today':''}`} aria-pressed={date===selected} onClick={()=>setSelected(date)} aria-label={dayNames[i]+', '+formatDate(date)}><span>{shortDays[i]}</span><strong>{Number(date.slice(-2))}</strong></button>):<button className="today-button" onClick={()=>setSelected(today)}>Текущая неделя</button>}<button className="icon-button" aria-label="Следующая неделя" onClick={()=>setSelected(addDays(selected,7))}><ChevronRight/></button></nav>
+      {glance && <section className={`day-glance ${glance.kind}`} aria-label="Мой день сейчас"><strong>{glance.title}</strong>{glance.detail&&<span>{glance.detail}</span>}</section>}
       {message && <div className="message dismissible" role="status"><span>{message}{saved.changes.length>0 && <button onClick={()=>setChangesOpen(true)}>Что изменилось</button>}</span><button className="dismiss-message" aria-label="Закрыть уведомление" onClick={()=>setMessage('')}><X size={16}/></button></div>}
       {(selected<`${data.year}-09-01` || selected>`${data.year+1}-01-31`) && <div className="message warning">Это расписание осени {data.year}. Для выбранной даты оно может быть неактуально.</div>}
       {view==='day'?renderDay(selected):week.map(date=>renderDay(date,true))}

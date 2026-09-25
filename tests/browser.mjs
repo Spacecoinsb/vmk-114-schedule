@@ -61,6 +61,7 @@ try {
   console.log('PASS subgroup selection, consultation coverage, persistence and dismissible notice');
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'mobile fits viewport');
   await page.getByRole('button',{name:'День',exact:true}).click();
+  await page.getByRole('region',{name:'Мой день сейчас'}).waitFor();
   await page.getByRole('button',{name:'Тёмная тема',exact:true}).click();
   await page.reload();
   assert.equal(await page.locator('html').getAttribute('data-theme'),'dark');
@@ -85,7 +86,7 @@ try {
   await page.getByRole('button',{name:'Сегодня',exact:true}).click();
   await page.getByRole('button',{name:'Светлая тема',exact:true}).click();
   console.log('PASS dark-theme persistence, dated homework, completed tasks, bottom footer');
-  assert((await page.locator('.lesson').first().boundingBox()).y<240,'schedule is above the fold on mobile');
+  assert((await page.locator('.lesson').first().boundingBox()).y<300,'schedule is above the fold on mobile');
   assert(await page.getByRole('link',{name:'Сайт ВМК',exact:true}).isVisible(),'source is accessible without opening details');
   await mkdir('test-results',{recursive:true});
   await page.screenshot({path:'test-results/mobile.png',fullPage:true});
@@ -96,13 +97,16 @@ try {
 
   await page.clock.setFixedTime(new Date('2026-09-25T05:50:00Z'));
   await page.reload();
+  await page.getByRole('region',{name:'Мой день сейчас'}).getByText('До первой пары 10 мин',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'Неделя',exact:true}).click();
   await page.getByText('Через 10 мин',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'День',exact:true}).click();
   await page.clock.setFixedTime(new Date('2026-09-25T06:10:00Z'));
   await page.reload();
-  await page.getByText('Сейчас · ещё 1 ч 20 мин',{exact:true}).waitFor();
+  await page.getByRole('region',{name:'Мой день сейчас'}).getByText('До конца 1 ч 20 мин',{exact:true}).waitFor();
   await page.clock.setFixedTime(new Date('2026-09-25T07:30:00Z'));
   await page.reload();
-  await page.getByText('Через 10 мин',{exact:true}).waitFor();
+  await page.getByRole('region',{name:'Мой день сейчас'}).getByText('Окно 10 мин',{exact:true}).waitFor();
   assert.equal(await page.locator('.lesson.current').count(),0,'finished class is no longer current');
   await page.clock.setFixedTime(new Date());
   await page.reload();

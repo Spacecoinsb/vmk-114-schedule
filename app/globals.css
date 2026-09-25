@@ -83,9 +83,9 @@ button:focus-visible, a:focus-visible { outline:2px solid var(--ring); outline-o
 .source-links { display:flex; flex-wrap:wrap; gap:18px; margin-top:14px; font-size:13.5px; font-weight:600; }
 .source-links a { display:inline-flex; align-items:center; gap:3px; }
 
-.heading { display:flex; align-items:flex-end; justify-content:space-between; gap:12px; padding:12px 2px 8px; }
-.eyebrow { margin:0; color:var(--muted-foreground); font-size:14px; font-weight:500; }
-h1 { font-size:32px; line-height:1.05; letter-spacing:-1.1px; font-weight:800; margin:3px 0 0; }
+.heading { display:flex; align-items:flex-end; justify-content:space-between; gap:12px; padding:10px 2px 6px; }
+.eyebrow { margin:0; color:var(--muted-foreground); font-size:13px; font-weight:500; }
+h1 { font-size:26px; line-height:1.05; letter-spacing:-.8px; font-weight:800; margin:2px 0 0; }
 
 /* Day strip */
 .date-navigation { display:grid; grid-template-columns:28px 1fr 28px; align-items:center; gap:2px; margin-bottom:10px; }
@@ -99,29 +99,29 @@ h1 { font-size:32px; line-height:1.05; letter-spacing:-1.1px; font-weight:800; m
 .day-button[aria-pressed=true] strong { color:var(--background); }
 
 /* Now / next: a big countdown */
-.day-glance { display:flex; align-items:center; gap:14px; margin:0 0 10px; padding:12px 14px; border-radius:22px; background:var(--card); box-shadow:var(--shadow); }
-.glance-value { flex-shrink:0; min-width:74px; text-align:center; padding:8px 10px; border-radius:16px; background:var(--now); color:#fff; font-size:22px; font-weight:800; line-height:1; letter-spacing:-.5px; }
-.glance-value small { display:block; margin-top:3px; font-size:11px; font-weight:600; letter-spacing:0; opacity:.9; }
+.day-glance { display:flex; align-items:center; gap:12px; margin:0 0 8px; padding:9px 12px; border-radius:18px; background:var(--card); box-shadow:var(--shadow); }
+.glance-value { flex-shrink:0; min-width:62px; text-align:center; padding:6px 8px; border-radius:13px; background:var(--now); color:#fff; font-size:19px; font-weight:800; line-height:1; letter-spacing:-.5px; }
+.glance-value small { display:block; margin-top:2px; font-size:10px; font-weight:600; letter-spacing:0; opacity:.9; }
 .day-glance.done .glance-value { background:var(--muted); color:var(--foreground); }
 .glance-text { min-width:0; }
-.glance-text strong { display:block; font-size:16px; font-weight:750; line-height:1.25; }
-.glance-text span { display:block; margin-top:2px; font-size:13.5px; color:var(--muted-foreground); overflow-wrap:anywhere; }
+.glance-text strong { display:block; font-size:14.5px; font-weight:750; line-height:1.25; }
+.glance-text span { display:block; margin-top:1px; font-size:12.5px; color:var(--muted-foreground); overflow-wrap:anywhere; }
 
 /* Lessons: roomy full-width cards */
 .slide.from-right { animation:from-right .22s ease-out; }
 .slide.from-left { animation:from-left .22s ease-out; }
 @keyframes from-right { from { opacity:0; transform:translateX(24px); } }
 @keyframes from-left { from { opacity:0; transform:translateX(-24px); } }
-.list { display:flex; flex-direction:column; gap:10px; }
-.lesson { position:relative; overflow:hidden; padding:16px 18px 17px; border-radius:22px; background:var(--card); box-shadow:var(--shadow); }
-.lesson-time { display:flex; align-items:center; gap:8px; min-height:28px; }
-.range { font-size:15px; font-weight:750; letter-spacing:-.2px; font-variant-numeric:tabular-nums; }
+.list { display:flex; flex-direction:column; gap:7px; }
+.lesson { position:relative; overflow:hidden; padding:10px 14px 11px; border-radius:18px; background:var(--card); box-shadow:var(--shadow); }
+.lesson-time { display:flex; align-items:center; gap:7px; min-height:24px; }
+.range { font-size:14px; font-weight:750; letter-spacing:-.2px; font-variant-numeric:tabular-nums; }
 .range span { color:var(--muted-foreground); font-weight:500; }
-.tag { padding:3px 9px; border-radius:999px; font-size:11.5px; font-weight:750; letter-spacing:.06em; text-transform:uppercase; background:var(--muted); color:var(--foreground); }
-.live { padding:3px 9px; border-radius:999px; font-size:12px; font-weight:700; background:var(--now-soft); color:var(--now); }
+.tag { padding:2px 8px; border-radius:999px; font-size:10.5px; font-weight:750; letter-spacing:.06em; text-transform:uppercase; background:var(--muted); color:var(--foreground); }
+.live { padding:2px 8px; border-radius:999px; font-size:11.5px; font-weight:700; background:var(--now-soft); color:var(--now); }
 .lesson-time .homework-button { margin-left:auto; }
-.lesson h3 { margin:8px 0 2px; font-size:21px; line-height:1.18; font-weight:750; letter-spacing:-.5px; overflow-wrap:anywhere; }
-.teacher-row { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:8px; font-size:14px; color:var(--muted-foreground); }
+.lesson h3 { margin:3px 0 0; font-size:17.5px; line-height:1.2; font-weight:750; letter-spacing:-.5px; overflow-wrap:anywhere; }
+.teacher-row { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:4px; font-size:13.5px; color:var(--muted-foreground); }
 .teacher-row>span:first-child { min-width:0; overflow-wrap:anywhere; }
 /* Lecture: the sunny card you notice from across the room. */
 .lesson.lecture { background:var(--lecture); color:var(--lecture-ink); box-shadow:none; }
@@ -134,18 +134,18 @@ h1 { font-size:32px; line-height:1.05; letter-spacing:-1.1px; font-weight:800; m
 .lesson.current { box-shadow:0 0 0 2.5px var(--now), var(--shadow); }
 .lesson.past { opacity:.5; }
 /* Every room looks the same. */
-.room { display:inline-flex; align-items:baseline; gap:4px; flex-shrink:0; white-space:nowrap; padding:3px 10px; border:2px solid var(--foreground); border-radius:10px; color:var(--foreground); font-size:16px; line-height:1.3; font-weight:800; font-variant-numeric:tabular-nums; }
+.room { display:inline-flex; align-items:baseline; gap:4px; flex-shrink:0; white-space:nowrap; padding:1px 9px; border:2px solid var(--foreground); border-radius:9px; color:var(--foreground); font-size:15px; line-height:1.3; font-weight:800; font-variant-numeric:tabular-nums; }
 button.room { cursor:pointer; background:none; font-family:inherit; }
 button.room:hover { background:color-mix(in srgb,currentColor 8%,transparent); }
 .room-note { font-size:11px; font-weight:700; opacity:.65; }
-.progress { position:absolute; left:0; right:0; bottom:0; height:5px; background:color-mix(in srgb,var(--now) 18%,transparent); }
+.progress { position:absolute; left:0; right:0; bottom:0; height:4px; background:color-mix(in srgb,var(--now) 18%,transparent); }
 .progress i { display:block; height:100%; background:var(--now); border-radius:0 3px 3px 0; }
-.rule-note { margin:8px 0 0; font-size:13px; opacity:.72; }
-.changed-note { margin:10px 0 0; padding:7px 10px; border-radius:12px; background:var(--warn-bg); color:var(--warn-fg); font-size:13px; font-weight:500; }
+.rule-note { margin:4px 0 0; font-size:12.5px; opacity:.72; }
+.changed-note { margin:6px 0 0; padding:5px 9px; border-radius:12px; background:var(--warn-bg); color:var(--warn-fg); font-size:13px; font-weight:500; }
 .subgroup-warning { color:var(--warn-fg); opacity:1; }
-.week-day { margin-bottom:26px; }
-.day-title { display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin:0 4px 10px; }
-.day-title h2 { margin:0; font-size:19px; font-weight:800; letter-spacing:-.4px; }
+.week-day { margin-bottom:18px; }
+.day-title { display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin:0 4px 7px; }
+.day-title h2 { margin:0; font-size:17px; font-weight:800; letter-spacing:-.4px; }
 .day-title h2 span { color:var(--muted-foreground); font-weight:500; }
 .day-title>span { color:var(--muted-foreground); font-size:13px; white-space:nowrap; }
 .empty { text-align:center; color:var(--muted-foreground); padding:44px 20px; border-radius:22px; border:2px dashed var(--border); }
@@ -158,9 +158,9 @@ button.room:hover { background:color-mix(in srgb,currentColor 8%,transparent); }
 .message .dismiss-message { min-width:30px; height:30px; margin:0; display:grid; place-items:center; border-radius:999px; text-decoration:none; flex-shrink:0; }
 
 /* Homework: inline under the lesson */
-.homework-button { display:inline-flex; align-items:center; gap:4px; flex-shrink:0; height:28px; padding:0 10px; border:1.5px solid var(--border); border-radius:999px; background:transparent; color:var(--muted-foreground); font-size:12.5px; font-weight:650; }
+.homework-button { display:inline-flex; align-items:center; gap:4px; flex-shrink:0; height:24px; padding:0 9px; border:1.5px solid var(--border); border-radius:999px; background:transparent; color:var(--muted-foreground); font-size:12.5px; font-weight:650; }
 .homework-button.has-task { border-color:var(--now); color:var(--now); }
-.hw-preview { display:block; width:100%; margin-top:10px; padding:9px 12px; border:0; border-radius:12px; background:color-mix(in srgb,currentColor 7%,transparent); color:inherit; font-size:14px; text-align:left; white-space:pre-wrap; overflow-wrap:anywhere; }
+.hw-preview { display:block; width:100%; margin-top:6px; padding:6px 10px; border:0; border-radius:12px; background:color-mix(in srgb,currentColor 7%,transparent); color:inherit; font-size:14px; text-align:left; white-space:pre-wrap; overflow-wrap:anywhere; }
 .homework-editor { margin-top:12px; scroll-margin:80px; }
 .homework-editor textarea { resize:vertical; width:100%; min-height:84px; background:var(--background); border:1.5px solid var(--border); border-radius:14px; padding:10px 12px; color:var(--foreground); font:inherit; font-size:16px; }
 .homework-editor textarea:focus { outline:none; border-color:var(--now); }
@@ -208,8 +208,8 @@ textarea { font:inherit; }
 @media (max-width:360px) {
   .shell { padding-left:10px; padding-right:10px; }
   h1 { font-size:28px; }
-  .lesson { padding:14px 14px 15px; }
-  .lesson h3 { font-size:19px; }
+  .lesson { padding:9px 12px 10px; }
+  .lesson h3 { font-size:16.5px; }
   .teacher-row { flex-wrap:wrap; }
 }
 @media (prefers-reduced-motion:reduce) { * { animation:none!important; transition:none!important; } }

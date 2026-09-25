@@ -4,7 +4,7 @@ import {Dialog,DialogContent,DialogTitle,DialogDescription} from './ui/dialog';
 
 export function ThemeButton() {
   const [dark,setDark]=useState(()=>document.documentElement.dataset.theme==='dark');
-  useEffect(()=>{document.querySelector('meta[name="theme-color"]')?.setAttribute('content',dark?'#11151c':'#f8f9fb');},[dark]);
+  useEffect(()=>{document.querySelector('meta[name="theme-color"]')?.setAttribute('content',dark?'#0f1217':'#f6f7f9');},[dark]);
   useEffect(()=>{
     const media=matchMedia('(prefers-color-scheme: dark)');
     const follow=()=>{try{if(localStorage.getItem('vmk114-theme'))return;}catch{}document.documentElement.dataset.theme=media.matches?'dark':'light';setDark(media.matches);};

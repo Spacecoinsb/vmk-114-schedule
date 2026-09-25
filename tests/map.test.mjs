@@ -6,7 +6,8 @@ import source from '../public/source.json' with {type:'json'};
 
 test('all floors are present with rooms, six stairwells and corridors',()=>{
   assert.deepEqual(FLOORS.map(f=>f.floor),[1,2,5,6,7]);
-  for(const f of FLOORS){assert.equal(f.stairs.length,6);assert(f.corridors.length>0);for(const p of [...f.rooms,...f.places])assert(p.x>0&&p.x<1&&p.y>0&&p.y<1,`${f.floor}:${p.id}`);}
+  for(const f of FLOORS){assert.equal(f.stairs.length,6);assert(f.corridors.length>0);for(const p of [...f.rooms,...f.places])assert(p.x>0&&p.x<2100&&p.y>0&&p.y<900,`${f.floor}:${p.id}`);
+    for(const r of f.rooms){const [x0,y0,x1,y1]=r.box;assert(x0<r.x&&r.x<x1&&y0<r.y&&r.y<y1&&x1-x0<450&&y1-y0<450,`box of ${f.floor}:${r.id}`);}}
   assert(POINTS.filter(p=>p.kind==='room').length>300);
 });
 test('room names from the timetable are found',()=>{

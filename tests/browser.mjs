@@ -135,9 +135,9 @@ try {
   await page.getByRole('option',{name:/Столовая «Диетка»/}).click();
   await page.getByRole('button',{name:'Сюда',exact:true}).click();
   await page.getByText(/Спустись по лестнице . на 2 этаж/).waitFor();
-  await page.getByRole('button',{name:'3D'}).click();
-  assert.equal(await page.locator('.plane').count(),5);
-  await page.locator('.plane').filter({hasText:'2 этаж'}).click({force:true});
+  await page.locator('.scene-view canvas, .scene-view img').first().waitFor();
+  for(const mode of ['Схема','PDF','3D']) await page.getByRole('button',{name:mode,exact:true}).click();
+  await page.getByRole('button',{name:'2',exact:true}).click();
   await page.getByRole('button',{name:'2',exact:true,pressed:true}).waitFor();
   await page.getByRole('button',{name:'Ближайший туалет'}).click();
   await page.getByText(/туалет/).first().waitFor();
@@ -190,6 +190,9 @@ try {
   const offlinePdf=await page.evaluate(async()=>{const link=[...document.querySelectorAll('.footer a')].find(a=>a.textContent==='PDF');const response=await fetch(link.href);return {ok:response.ok,size:(await response.arrayBuffer()).byteLength};});
   assert(offlinePdf.ok && offlinePdf.size>1000);
   assert(await page.evaluate(async()=>(await fetch('map/f6.jpg')).ok),'floor plans work offline');
+  await page.getByRole('button',{name:'Карта',exact:true}).click();
+  await page.getByLabel('Поиск на карте').waitFor();
+  await page.getByRole('button',{name:'Расписание',exact:true}).click();
   console.log('PASS genuine browser offline mode: full reload, 21 displayed lessons and saved PDF');
   await context.setOffline(false);
   await page.evaluate(()=>window.dispatchEvent(new Event('online')));

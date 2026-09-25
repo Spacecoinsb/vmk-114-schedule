@@ -235,40 +235,17 @@ button.room:hover { background:var(--muted); }
 .floor-switch button.has-route::after { content:''; position:absolute; top:3px; right:3px; width:6px; height:6px; border-radius:50%; background:#e5484d; }
 .mode-button { display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 12px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--foreground); font-size:13px; font-weight:500; }
 .mode-button.on { border-color:var(--foreground); }
-.floor-view { position:relative; height:min(56dvh,540px); overflow:hidden; border:1px solid var(--border); border-radius:12px; background:#fff; touch-action:none; cursor:grab; user-select:none; }
-.floor-canvas { position:absolute; left:0; top:0; width:100%; transform-origin:0 0; }
-.floor-canvas img, .plane img { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
-[data-theme=dark] .floor-canvas img, [data-theme=dark] .plane img { filter:invert(.92) hue-rotate(180deg) saturate(.8); }
-[data-theme=dark] .floor-view { background:#1b1b1b; }
-.map-overlay { position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
-.hotspot { fill:transparent; cursor:pointer; }
-.hotspot:hover { fill:#2554b833; }
-.route-line { fill:none; stroke:#e5484d; stroke-width:4; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:1 9; animation:march 1s linear infinite; }
-@keyframes march { to { stroke-dashoffset:-10; } }
-.stair-mark { fill:#fff; stroke:#e5484d; stroke-width:3; }
-.mark circle:not(.pulse) { fill:#e5484d; stroke:#fff; stroke-width:2.5; }
-.mark.from circle:not(.pulse) { fill:#2554b8; }
-.mark.selected circle:not(.pulse) { fill:#111; }
-.mark .pulse { fill:#e5484d33; animation:pulse 1.6s ease-out infinite; transform-box:fill-box; transform-origin:center; }
-.mark.from .pulse { fill:#2554b833; }
-@keyframes pulse { from { transform:scale(.4); opacity:1; } to { transform:scale(1.4); opacity:0; } }
-.mark text { font-size:15px; font-weight:700; text-anchor:middle; fill:#111; paint-order:stroke; stroke:#fff; stroke-width:4px; }
-.compass { position:absolute; left:8px; right:8px; bottom:6px; display:flex; justify-content:space-between; pointer-events:none; font-size:11px; color:#667; }
-.zoom-buttons { position:absolute; right:8px; top:8px; display:flex; flex-direction:column; gap:4px; }
-.zoom-buttons button { width:34px; height:34px; display:grid; place-items:center; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--foreground); }
-.stack-stage { position:relative; height:min(56dvh,520px); overflow:hidden; border:1px solid var(--border); border-radius:12px; background:radial-gradient(ellipse at 50% 30%, var(--card), var(--muted)); perspective:1600px; touch-action:none; cursor:grab; display:grid; place-items:center; }
-.stack { position:relative; transform-style:preserve-3d; }
-.plane { position:absolute; transform-style:preserve-3d; opacity:.5; cursor:pointer; transition:opacity .2s; box-shadow:0 0 0 1px #0000002a; background:#fff; }
-.plane.on-route { opacity:.85; }
-.plane.active { opacity:1; }
-.plane-label { position:absolute; left:2%; top:40%; padding:1px 6px; border-radius:4px; background:var(--brand); color:#fff; font-size:11px; font-weight:700; white-space:nowrap; }
-.stair-shaft { position:absolute; width:4px; margin-left:-2px; background:#e5484d; transform-origin:top center; }
-.stack-hint { position:absolute; bottom:6px; left:0; right:0; margin:0; text-align:center; font-size:11px; color:var(--muted-foreground); pointer-events:none; }
+.map-modes { flex-shrink:0; }
+.scene-view { position:relative; height:min(58dvh,560px); overflow:hidden; border:1px solid var(--border); border-radius:12px; background:linear-gradient(180deg, var(--card), var(--muted)); touch-action:none; user-select:none; }
+.scene-view canvas { display:block; width:100%; height:100%; }
+.scene-view.fallback { overflow:auto; touch-action:auto; }
+.scene-view.fallback img { height:100%; width:auto; max-width:none; }
+.compass { position:absolute; left:10px; right:10px; top:8px; display:flex; justify-content:space-between; pointer-events:none; font-size:11px; font-weight:600; color:var(--muted-foreground); }
+.scene-hint { position:absolute; bottom:6px; left:0; right:0; margin:0; text-align:center; font-size:11px; color:var(--muted-foreground); pointer-events:none; }
 .map-quick { display:flex; flex-wrap:wrap; gap:6px; }
 .map-quick button { display:inline-flex; align-items:center; gap:5px; height:32px; padding:0 11px; border:1px solid var(--border); border-radius:999px; background:var(--card); color:var(--foreground); font-size:13px; }
 .map-credit { margin:0; font-size:11px; color:var(--muted-foreground); }
 
-.plane .route-line { stroke-width:14; stroke-dasharray:none; animation:none; }
-.plane .mark circle:not(.pulse) { r:18px; }
-.plane .stair-mark { r:16px; stroke-width:6; }
-.stair-shaft { width:5px; margin-left:-2.5px; }
+.floor-switch button { width:34px; }
+.map-modes button { padding:4px 9px; }
+.map-toolbar { flex-wrap:wrap; }

@@ -1,4 +1,4 @@
-import React, {createContext, useContext, useEffect, useRef, useState, type TouchEvent} from 'react';
+import React, {Suspense, createContext, lazy, useContext, useEffect, useRef, useState, type TouchEvent} from 'react';
 import {ArrowUpRight, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, RefreshCw, WifiOff, X} from 'lucide-react';
 import {Dialog, DialogContent, DialogTitle, DialogDescription} from '@/components/ui/dialog';
 import {DEFAULT_GROUP, cleanTitle, groupSchedule, isDisplayedLesson, teacherRows, validSnapshot, verification} from '@/lib/schedule-model.mjs';
@@ -6,7 +6,8 @@ import {ThemeButton,HomeworkButton,HomeworkEditor,useHomework,type Task} from '@
 import {useSubgroups} from '@/components/subgroups';
 import {dayGlance, duration, focusDate, minutes, roomFor} from '@/lib/day-glance.mjs';
 import {findRoom} from '@/lib/map-route.mjs';
-import {CampusMap} from '@/components/campus-map';
+// three.js is loaded only when the map is opened.
+const CampusMap = lazy(() => import('@/components/campus-map').then(m => ({default:m.CampusMap})));
 import seed from '@/public/source.json';
 
 type Lesson = {id:string; day:number; start:string; end:string; title:string; detail:string; room:string; type:string; raw:string; rule:{from?:string; dates?:string[]}|null};
@@ -270,9 +271,9 @@ export default function Home() {
 
     <nav className="tabs" aria-label="Разделы"><button aria-pressed={tab==='schedule'} onClick={()=>setTab('schedule')}>Расписание</button><button aria-pressed={tab==='map'} onClick={()=>setTab('map')}>Карта</button></nav>
 
-    {tab==='map' ? <CampusMap target={mapTarget?.to ?? null} fromHint={mapTarget?.from ?? null} key={mapTarget?.n ?? 0}>
+    {tab==='map' ? <Suspense fallback={<p className="personal-hint">Загружаем карту…</p>}><CampusMap target={mapTarget?.to ?? null} fromHint={mapTarget?.from ?? null} key={mapTarget?.n ?? 0}>
       {nextLesson && <button onClick={()=>openRoom(roomFor(nextLesson,subgroups.selected),today,nextLesson.start)}>К паре {nextLesson.start}: {roomFor(nextLesson,subgroups.selected)}</button>}
-    </CampusMap> : <>
+    </CampusMap></Suspense> : <>
     <div className="toolbar">
       <div className="view-switch" role="group" aria-label="Вид расписания"><button aria-pressed={view==='day'} onClick={()=>setView('day')}>День</button><button aria-pressed={view==='week'} onClick={()=>setView('week')}>Неделя</button></div>
       <button className={`status ${tone}`} onClick={()=>setStatusOpen(true)} aria-label={`Статус проверки: ${statusText}`}>

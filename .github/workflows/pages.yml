@@ -41,6 +41,7 @@ jobs:
       - name: Собрать приложение
         env:
           VITE_BASE: /${{ github.event.repository.name }}/
+          VITE_REPO: ${{ github.repository }}
         run: npm run build
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4

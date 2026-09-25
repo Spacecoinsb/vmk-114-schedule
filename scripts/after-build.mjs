@@ -6,7 +6,7 @@ const manifestPath=path.join(root,'manifest.webmanifest');
 const manifest=JSON.parse(await readFile(manifestPath,'utf8'));
 const base=process.env.VITE_BASE||'/';
 manifest.id=base; manifest.start_url=base; manifest.scope=base;
-manifest.theme_color='#f6f7f9'; manifest.background_color='#f6f7f9';
+manifest.theme_color='#090d24'; manifest.background_color='#090d24';
 for(const icon of manifest.icons)icon.src=base+icon.src.replace(/^\//,'');
 await writeFile(manifestPath,JSON.stringify(manifest));
 async function walk(dir){const found=[];for(const item of await readdir(dir,{withFileTypes:true})){const name=path.join(dir,item.name);if(item.isDirectory())found.push(...await walk(name));else found.push(path.relative(root,name).replaceAll('\\','/'));}return found;}

@@ -10,7 +10,7 @@ let mode='ok'; let served=structuredClone(snapshot); const requests=[];
 const types={'.html':'text/html','.js':'application/javascript','.mjs':'application/javascript','.css':'text/css','.json':'application/json','.pdf':'application/pdf','.svg':'image/svg+xml','.webmanifest':'application/manifest+json','.png':'image/png'};
 const server=createServer(async(req,res)=>{
   const url=new URL(req.url,'http://localhost');requests.push(url.pathname);
-  const pathname=url.pathname.replace(/^\/vmk-114-schedule\//,'');
+  const pathname=url.pathname.replace(/^\/vmk-schedule\//,'');
   try {
     if(pathname==='source.json'){
       if(mode==='unavailable'){res.writeHead(503);res.end('Unavailable');return;}
@@ -24,7 +24,7 @@ const server=createServer(async(req,res)=>{
   }catch{res.writeHead(404);res.end();}
 });
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-const base=`http://127.0.0.1:${server.address().port}/vmk-114-schedule/`;
+const base=`http://127.0.0.1:${server.address().port}/vmk-schedule/`;
 const browser=await chromium.launch({channel:process.env.BROWSER_CHANNEL||'msedge',headless:true});
 try {
   const context=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1,isMobile:true,hasTouch:true});
@@ -39,7 +39,7 @@ try {
   await page.getByRole('button',{name:'PDF',exact:true}).waitFor();
   await page.waitForFunction(()=>!!navigator.serviceWorker.controller);
   assert.equal(await page.locator('html').getAttribute('data-theme'),'msu','MSU is the default theme');
-  assert(requests.includes('/vmk-114-schedule/latest.pdf'),'first visit saves PDF even if seed hash matches');
+  assert(requests.includes('/vmk-schedule/latest.pdf'),'first visit saves PDF even if seed hash matches');
   await status();
   await page.getByText('работает',{exact:true}).waitFor();
   await page.getByText('Последняя сверка с ВМК',{exact:true}).waitFor();

@@ -53,7 +53,7 @@ try {
   assert.equal(roomStyles.length,1,'lecture halls and seminar rooms look the same');
   assert.equal(await page.locator('.room').filter({hasText:'613'}).count(),1);
   assert.equal(await page.locator('.room').filter({hasText:'682'}).count(),1);
-  await page.getByRole('button',{name:'Моя подгруппа',exact:true}).click();
+  await page.getByRole('button',{name:'Подгруппа',exact:true}).click();
   await page.getByLabel('Английский язык',{exact:true}).selectOption({label:'Перцева З.Н.'});
   await page.getByLabel('Практикум на ЭВМ',{exact:true}).selectOption({label:'Панфёров А.А.'});
   await page.getByRole('button',{name:'Сохранить выбор',exact:true}).click();
@@ -63,7 +63,7 @@ try {
   await page.reload();
   assert.equal(await page.locator('.room').filter({hasText:'613'}).count(),0);
   assert.equal(await page.locator('.room').filter({hasText:'682'}).count(),1,'subgroup choice survives restart');
-  await page.getByRole('button',{name:'Моя подгруппа',exact:true}).click();
+  await page.getByRole('button',{name:'Подгруппа',exact:true}).click();
   await page.getByLabel('Английский язык',{exact:true}).selectOption('');
   await page.getByLabel('Практикум на ЭВМ',{exact:true}).selectOption('');
   await page.getByRole('button',{name:'Сохранить выбор',exact:true}).click();

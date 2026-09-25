@@ -31,10 +31,10 @@
   --warn-bg:#ffe9c2; --warn-fg:#7a4b06;
 }
 [data-theme=msu] {
-  --background:#140a0c; --foreground:#f7ede3; --card:#211215; --muted:#2e1a1e; --muted-foreground:#bfa58f; --border:#3b2327;
-  --lecture:#d6aa4c; --lecture-ink:#1a0c0e; --lecture-soft:#3a2716; --now:#e24a3b; --now-soft:#40181a; --sport:#1c2a20; --consult:#2c1f33;
-  --ok:#7cc48c; --warn-bg:#382815; --warn-fg:#efc97f; --danger:#ff7b64; --shadow:0 1px 0 #ffffff08, 0 10px 24px -14px #000000cc;
-  --mark-bg:#8e1b2b; --mark-fg:#f2d27e;
+  --background:#090d24; --foreground:#eef0fb; --card:#121834; --muted:#1b2246; --muted-foreground:#9aa3cf; --border:#252d57;
+  --lecture:#e3bd55; --lecture-ink:#0a0e27; --lecture-soft:#2a2a3d; --now:#ff6b5a; --now-soft:#3a1d2a; --sport:#13302f; --consult:#26214a;
+  --ok:#6fd49a; --warn-bg:#2f2a1a; --warn-fg:#efcf7f; --danger:#ff7b64; --shadow:0 1px 0 #ffffff08, 0 10px 24px -14px #000000cc;
+  --mark-bg:#2a3aa8; --mark-fg:#ffffff;
 }
 [data-theme=night] {
   --background:#15130f; --foreground:#f3eee3; --card:#1f1c17; --muted:#2b2720; --muted-foreground:#a79f90; --border:#353027;
@@ -272,12 +272,12 @@ textarea { font:inherit; }
 .map-toolbar { display:flex; align-items:center; justify-content:space-between; gap:10px; }
 .floor-switch { display:flex; gap:4px; }
 .floor-switch button { position:relative; width:38px; height:34px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--foreground); font-weight:600; }
-.floor-switch button[aria-pressed=true] { background:var(--brand); border-color:var(--brand); color:#fff; }
+.floor-switch button[aria-pressed=true] { background:var(--foreground); border-color:var(--foreground); color:var(--background); }
 .floor-switch button.has-route::after { content:''; position:absolute; top:3px; right:3px; width:6px; height:6px; border-radius:50%; background:var(--now); }
 .mode-button { display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 12px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--foreground); font-size:13px; font-weight:500; }
 .mode-button.on { border-color:var(--foreground); }
 .map-modes { flex-shrink:0; }
-.scene-view { position:relative; height:min(58dvh,560px); overflow:hidden; border:1px solid var(--border); border-radius:12px; background:linear-gradient(180deg, var(--card), var(--muted)); touch-action:none; user-select:none; }
+.scene-view { position:relative; height:max(360px, calc(100dvh - 205px)); overflow:hidden; border:1px solid var(--border); border-radius:12px; background:linear-gradient(180deg, var(--card), var(--muted)); touch-action:none; user-select:none; }
 .scene-view canvas { display:block; width:100%; height:100%; }
 .scene-view.fallback { overflow:auto; touch-action:auto; }
 .scene-view.fallback img { height:100%; width:auto; max-width:none; }
@@ -320,9 +320,22 @@ textarea { font:inherit; }
 .list.roomy .room { font-size:17px; padding:2px 11px; border-radius:10px; }
 .list.roomy .range { font-size:15.5px; }
 
-/* МГУ theme: the Main Building on the horizon and a burgundy glow. */
-.topbar { position:relative; }
-.skyline { display:none; }
-[data-theme=msu] .skyline { display:block; position:absolute; z-index:0; left:0; right:0; bottom:-2px; width:100%; height:58px; fill:var(--lecture); opacity:.15; pointer-events:none; }
-[data-theme=msu] body { background:radial-gradient(130% 55% at 50% -12%, #4a1220 0%, var(--background) 62%) fixed, var(--background); }
-[data-theme=msu] .topbar > :not(.skyline) { position:relative; z-index:1; }
+/* МГУ theme: the Main Building photo fading into the page, the emblem as a watermark. */
+.msu-hero, .msu-emblem { display:none; }
+[data-theme=msu] .msu-hero { display:block; position:absolute; left:0; right:0; top:0; height:230px; background-size:cover; background-position:center 30%; pointer-events:none; z-index:0;
+  mask-image:linear-gradient(#000 0%, #0009 45%, transparent 100%); -webkit-mask-image:linear-gradient(#000 0%, #0009 45%, transparent 100%); opacity:.55; }
+[data-theme=msu] .msu-emblem { display:block; position:fixed; right:-60px; bottom:-40px; width:300px; height:300px; background:var(--lecture); opacity:.05; pointer-events:none; z-index:0;
+  mask-size:contain; -webkit-mask-size:contain; mask-repeat:no-repeat; -webkit-mask-repeat:no-repeat; }
+.shell { position:relative; }
+.shell > :not(.msu-hero):not(.msu-emblem) { position:relative; z-index:1; }
+[data-theme=msu] .topbar .brand small, [data-theme=msu] .topbar .brand strong { text-shadow:0 1px 8px #000a; }
+
+/* Brand mark: the VMK logo, tinted by the theme. */
+.brandmark i { display:block; width:80%; height:80%; background:var(--mark-fg); mask-size:contain; -webkit-mask-size:contain; mask-repeat:no-repeat; -webkit-mask-repeat:no-repeat; mask-position:center; -webkit-mask-position:center; }
+.brandmark { border-radius:50%; }
+
+/* Footer: one scrollable row of small chips. */
+.footer { flex-wrap:nowrap; padding-top:14px; }
+.footer-links { flex-wrap:nowrap; overflow-x:auto; gap:6px; scrollbar-width:none; }
+.footer-links::-webkit-scrollbar { display:none; }
+.footer-links button, .footer-links a { flex-shrink:0; padding:6px 12px; font-size:13px; }

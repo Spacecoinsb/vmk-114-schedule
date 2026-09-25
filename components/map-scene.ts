@@ -18,11 +18,18 @@ const px = (x:number) => x-CX, pz = (y:number) => y-CZ;
 // The model takes its colours from the current theme.
 function palette() {
   const css = getComputedStyle(document.documentElement), v = (name:string) => css.getPropertyValue(name).trim() || '#888';
-  const c = (name:string) => new THREE.Color(v(name)).getHex();
   const dark = document.documentElement.dataset.scheme === 'dark';
-  return {slab:c('--muted'), room:c('--card'), lecture:c('--lecture-soft'), machine:c('--sport'), wc:c('--muted'), food:c('--now-soft'), place:c('--consult'),
-    stair:c('--now-soft'), edge:new THREE.Color(v('--muted-foreground')).multiplyScalar(dark ? 1 : 1.1).getHex(), text:v('--foreground'), textSoft:v('--muted-foreground'), ghost:c('--border'), now:c('--now')};
+  const col = (x:string) => new THREE.Color(x);
+  // Rooms stand out clearly from the floor slab; each kind keeps a recognisable hue.
+  const room = dark ? col(v('--card')).lerp(col(v('--foreground')), .2) : col(v('--card'));
+  const tint = (hue:string, amount:number) => col(hue).lerp(room, 1-amount).getHex();
+  return {slab:(dark ? col(v('--background')) : col(v('--muted'))).getHex(), room:room.getHex(),
+    lecture:tint(v('--lecture'), dark ? .7 : .55), machine:tint('#34c27a', .5), wc:tint('#7f9bd6', .45), food:tint('#ff9f43', .55),
+    place:tint('#a58bff', .45), stair:tint(v('--now'), .6), edge:col(v('--foreground')).lerp(room, dark ? .45 : .6).getHex(),
+    text:v('--foreground'), textSoft:v('--muted-foreground'), ghost:col(v('--border')).getHex(), now:col(v('--now')).getHex()};
 }
+// Dark or light label depending on what it sits on.
+const inkFor = (hex:number) => { const c = new THREE.Color(hex); return 0.2126*c.r+0.7152*c.g+0.0722*c.b > 0.45 ? '#16140f' : '#f5f2ea'; };
 const kindOf = (id:string) => /^П-/.test(id) ? 'lecture' : /^МЗ-/.test(id) ? 'machine' : 'room';
 const ICON:Record<string,string> = {wc:'WC', food:'🍽', place:'★'};
 
@@ -67,7 +74,8 @@ export class MapScene {
       // Rooms as low blocks, coloured by purpose.
       const blocks:THREE.BufferGeometry[] = [];
       const add = (box:Box, color:number, h = ROOM_H) => {
-        const [x0, y0, x1, y1] = box, w = Math.max(2, x1-x0-1.5), d = Math.max(2, y1-y0-1.5);
+        // Boxes are measured inside the walls; grow them so neighbours touch.
+        const [x0, y0, x1, y1] = box, w = Math.max(2, x1-x0+3), d = Math.max(2, y1-y0+3);
         const g = new THREE.BoxGeometry(w, h, d); g.translate(px((x0+x1)/2), h/2, pz((y0+y1)/2));
         const c = new THREE.Color(color), arr = new Float32Array(g.attributes.position.count*3);
         for (let i = 0; i < g.attributes.position.count; i++) c.toArray(arr, i*3);
@@ -101,15 +109,15 @@ export class MapScene {
     const ctx = canvas.getContext('2d')!; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const text = (label:string, box:Box|null, x:number, y:number, weight = 700, color = this.colors.text) => {
       const w = box ? (box[2]-box[0])*k : 60*k, h = box ? (box[3]-box[1])*k : 30*k;
-      let size = Math.min(h*0.42, 40); ctx.font = `${weight} ${size}px system-ui, sans-serif`;
-      const fit = w*0.86/ctx.measureText(label).width; if (fit < 1) { size *= fit; ctx.font = `${weight} ${size}px system-ui, sans-serif`; }
+      let size = Math.min(h*0.55, 54); ctx.font = `${weight} ${size}px system-ui, sans-serif`;
+      const fit = w*0.94/ctx.measureText(label).width; if (fit < 1) { size *= fit; ctx.font = `${weight} ${size}px system-ui, sans-serif`; }
       ctx.fillStyle = color; ctx.fillText(label, (x-x0)*k, (y-y0)*k);
     };
-    for (const r of f.rooms) text(r.id, r.box, (r.box[0]+r.box[2])/2, (r.box[1]+r.box[3])/2);
-    for (const s of f.stairs) text(s.id, s.box, s.x, s.y, 800);
+    for (const r of f.rooms) text(r.id, r.box, (r.box[0]+r.box[2])/2, (r.box[1]+r.box[3])/2, 800, inkFor(this.colors[kindOf(r.id) as 'room']));
+    for (const s of f.stairs) text(s.id, s.box, s.x, s.y, 800, inkFor(this.colors.stair));
     for (const p of f.places) {
       const short = p.kind === 'wc' ? p.name.replace('Туалет ', 'WC ') : p.name.replace(/\s*\(.*\)/, '').replace(/^Столовая /, '');
-      text(p.box ? short : ICON[p.kind] ?? '•', p.box ?? null, p.box ? (p.box[0]+p.box[2])/2 : p.x, p.box ? (p.box[1]+p.box[3])/2 : p.y, 600, this.colors.textSoft);
+      text(p.box ? short : ICON[p.kind] ?? '•', p.box ?? null, p.box ? (p.box[0]+p.box[2])/2 : p.x, p.box ? (p.box[1]+p.box[3])/2 : p.y, 700, p.box ? inkFor(this.colors[p.kind as 'food'] ?? this.colors.place) : this.colors.text);
     }
     const tex = new THREE.CanvasTexture(canvas); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(x1-x0, y1-y0).rotateX(-Math.PI/2), new THREE.MeshBasicMaterial({map:tex, transparent:true, depthWrite:false}));
@@ -166,16 +174,19 @@ export class MapScene {
   private frameFloor(focus?:{x:number; y:number}) {
     const f = (FLOORS as FloorData[]).find(q => q.floor === this.active)!;
     const [x0, y0, x1, y1] = bounds(f), y = level(this.active);
-    const target = focus ? new THREE.Vector3(px(focus.x), y, pz(focus.y)) : new THREE.Vector3(px((x0+x1)/2), y, pz((y0+y1)/2));
+    // Default view: the middle of the rooms (the U-shaped floors have an empty courtyard in the centre).
+    const midY = f.rooms.reduce((a, r) => a + r.y, 0) / Math.max(1, f.rooms.length);
+    const target = focus ? new THREE.Vector3(px(focus.x), y, pz(focus.y)) : new THREE.Vector3(px((x0+x1)/2), y, pz(f.rooms.length > 20 ? midY : (y0+y1)/2));
     const {clientWidth:w, clientHeight:h} = this.host;
     if (this.mode === '3d') {
       // Fit the whole floor width (or a neighbourhood of the focus) into the view, seen from the south-east above.
-      const span = focus ? 420 : (x1-x0)*0.92, hfov = 2*Math.atan(Math.tan(THREE.MathUtils.degToRad(this.persp.fov/2))*this.persp.aspect);
+      const span = focus ? 380 : Math.min(760, (x1-x0)*0.92), hfov = 2*Math.atan(Math.tan(THREE.MathUtils.degToRad(this.persp.fov/2))*this.persp.aspect);
       const dist = Math.min(7000, span/2/Math.tan(hfov/2));
       this.persp.position.copy(target).add(new THREE.Vector3(-0.12, 0.78, 0.62).normalize().multiplyScalar(dist));
     } else {
       // Open wide enough to read the numbers; pinch out for the whole building.
-      this.ortho.zoom = focus ? Math.max(2.4, w/520) : Math.min(w/(x1-x0)*1.8, h/(y1-y0)*0.9);
+      // Readable from the start: about 520 plan units across the screen; pinch out for the whole floor.
+      this.ortho.zoom = focus ? w/300 : Math.max(w/520, Math.min(w/(x1-x0), h/(y1-y0))*0.95);
       this.ortho.position.set(target.x, y+2000, target.z); this.ortho.up.set(0, 0, -1);
       this.ortho.updateProjectionMatrix();
     }

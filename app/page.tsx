@@ -1,8 +1,9 @@
 import {useEffect, useRef, useState} from 'react';
-import {ArrowUpRight, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, RefreshCw, WifiOff} from 'lucide-react';
+import {ArrowUpRight, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, RefreshCw, WifiOff, X} from 'lucide-react';
 import {Dialog, DialogContent, DialogTitle, DialogDescription} from '@/components/ui/dialog';
 import {cleanTitle, diffSchedules, teacherRows, validSchedule, validSnapshot, verification} from '@/lib/schedule-model.mjs';
 import {ThemeButton,HomeworkButton,useHomework} from '@/components/personal';
+import {useSubgroups} from '@/components/subgroups';
 import seed from '@/public/source.json';
 
 type Lesson = {id:string; day:number; start:string; end:string; title:string; detail:string; room:string; type:string; raw:string; rule:{from?:string; dates?:string[]}|null};
@@ -47,12 +48,15 @@ function persist(value:Saved) {
 function Room({room,note=''}:{room:string; note?:string}) {
   return <span className="room" aria-label={`Аудитория ${room}${note?', '+note:''}`}>{room}{note && <span className="room-note">{note}</span>}</span>;
 }
-function LessonCard({lesson,date,today,clock,changed,next,task,onTask}:{lesson:Lesson;date:string;today:string;clock:string;changed:boolean;next:boolean;task?:{text:string;done:boolean};onTask:()=>void}) {
+function LessonCard({lesson,date,today,clock,changed,next,task,onTask,preferredTeacher}:{lesson:Lesson;date:string;today:string;clock:string;changed:boolean;next:boolean;task?:{text:string;done:boolean};onTask:()=>void;preferredTeacher?:string}) {
   const now = date===today && clock>=lesson.start && clock<lesson.end;
   const minutes = (value:string) => Number(value.slice(0,2))*60+Number(value.slice(3));
   const remaining = clock ? minutes(now?lesson.end:lesson.start)-minutes(clock) : 0;
   const duration = remaining>=60 ? `${Math.floor(remaining/60)} ч${remaining%60 ? ` ${remaining%60} мин` : ''}` : `${remaining} мин`;
-  const rows = teacherRows(lesson.detail) as {teacher:string;room:string;note:string}[];
+  const allRows = teacherRows(lesson.detail) as {teacher:string;room:string;note:string}[];
+  const matched = allRows.filter(row=>row.teacher===preferredTeacher);
+  const rows = allRows.length>1 && matched.length ? matched : allRows;
+  const missingTeacher = !!preferredTeacher && allRows.length>0 && lesson.type!=='lecture' && !matched.length;
   const note = lesson.rule?.dates ? 'Только '+lesson.rule.dates.map(d=>formatDate(d,{day:'numeric',month:'short'})).join(', ') : lesson.rule?.from ? 'С '+formatDate(lesson.rule.from) : '';
   return <article className={`lesson ${now?'current':''}`}>
     <div className="time"><strong>{lesson.start}</strong><span>{lesson.end}</span></div>
@@ -61,6 +65,7 @@ function LessonCard({lesson,date,today,clock,changed,next,task,onTask}:{lesson:L
       <h3>{cleanTitle(lesson)}</h3>
       {rows.map((row,i)=><div className="teacher-row" key={i}><span>{row.teacher}</span>{(row.room || (i===0 && lesson.room)) && <Room room={row.room || lesson.room} note={row.note}/>}</div>)}
       {!rows.length && lesson.room && <Room room={lesson.room}/>}
+      {missingTeacher && <p className="rule-note subgroup-warning">Преподаватель подгруппы изменился — показаны все варианты.</p>}
       {note && <p className="rule-note">{note}</p>}
     </div>
   </article>;
@@ -76,6 +81,7 @@ export default function Home() {
   const [changesOpen,setChangesOpen] = useState(false), [clock,setClock] = useState(''), [pdfUrl,setPdfUrl] = useState(''), [pdfError,setPdfError] = useState('');
   const checking = useRef(false), lastAttempt = useRef(0);
   const data = saved.data;
+  const subgroups=useSubgroups(data.lessons);
   const monday = addDays(selected,-weekday(selected));
   const week = Array.from({length:7},(_,i)=>addDays(monday,i));
   const todayLessons = data.lessons.filter(l=>l.day===weekday(today) && active(l,today)).sort((a,b)=>a.start.localeCompare(b.start));
@@ -121,7 +127,7 @@ export default function Home() {
       current.current=next; setSaved(next);
       if (before.data.hash!==snapshot.hash) setPdfUrl('');
       if (diff.length) setMessage('Пары обновлены и сохранены на устройстве.');
-      else if (manual) setMessage(`Копия получена. ВМК проверен: ${stamp(snapshot.checkedAt)}. Новую проверку эта кнопка не запускает.`);
+      else if (manual) setMessage('Изменений нет');
       try { await savePdf(snapshot.hash); }
       catch (error) { setPdfError(error instanceof Error?error.message:'Не удалось сохранить PDF. Пары сохранены.'); }
     } catch (error) { setSyncError(error instanceof Error?error.message:'Не удалось получить обновления. Сохранённая версия оставлена.'); }
@@ -157,7 +163,7 @@ export default function Home() {
     const list=data.lessons.filter(l=>l.day===weekday(date) && active(l,date));
     return <section className={weekly?'week-day':''} key={date} aria-label={formatDate(date)}>
       {weekly && <div className="day-title"><h2>{dayNames[weekday(date)]}{weekly && <span> · {formatDate(date,{day:'numeric',month:'short'})}</span>}</h2><span>{list.length?`${list.length} ${list.length===1?'пара':list.length<5?'пары':'пар'}`:'Выходной'}</span></div>}
-      {list.length ? list.map(l=><LessonCard key={l.id} lesson={l} date={date} today={today} clock={clock} changed={saved.changes.some(c=>c.id===l.id)} next={date===today && l.id===nextId} task={homework.tasks.find(t=>t.id===date+':'+l.id)} onTask={()=>homework.open(date,l.id,cleanTitle(l))}/>) : <div className="empty"><CalendarDays size={25}/><p>На этот день пар нет</p></div>}
+      {list.length ? list.map(l=><LessonCard key={l.id} lesson={l} date={date} today={today} clock={clock} changed={saved.changes.some(c=>c.id===l.id)} next={date===today && l.id===nextId} task={homework.tasks.find(t=>t.id===date+':'+l.id)} onTask={()=>homework.open(date,l.id,cleanTitle(l))} preferredTeacher={subgroups.selected[cleanTitle(l)]}/>) : <div className="empty"><CalendarDays size={25}/><p>На этот день пар нет</p></div>}
     </section>;
   }
 
@@ -166,7 +172,7 @@ export default function Home() {
     <main>
       <div className="heading"><div><h1>{view==='day'?formatDate(selected):`${formatDate(monday,{day:'numeric',month:'short'})} — ${formatDate(week[6],{day:'numeric',month:'short'})}`}</h1><p className="eyebrow">{view==='day'?`${dayNames[weekday(selected)]} · ${selectedLessons.length ? `${selectedLessons.length} ${selectedLessons.length===1?'пара':selectedLessons.length<5?'пары':'пар'}`:'Без занятий'}`:'Расписание недели'}{selected!==today && <button className="return-today" onClick={()=>setSelected(today)}>Сегодня</button>}</p></div><div className="view-switch" role="group" aria-label="Вид расписания"><button aria-pressed={view==='day'} onClick={()=>setView('day')}>День</button><button aria-pressed={view==='week'} onClick={()=>setView('week')}>Неделя</button></div></div>
       <nav className={`date-navigation ${view==='week'?'weekly-navigation':''}`} aria-label="Выбрать день"><button className="icon-button" aria-label="Предыдущая неделя" onClick={()=>setSelected(addDays(selected,-7))}><ChevronLeft/></button>{view==='day'?week.map((date,i)=><button key={date} className={`day-button ${date===today?'today':''}`} aria-pressed={date===selected} onClick={()=>setSelected(date)} aria-label={dayNames[i]+', '+formatDate(date)}><span>{shortDays[i]}</span><strong>{Number(date.slice(-2))}</strong></button>):<button className="today-button" onClick={()=>setSelected(today)}>Текущая неделя</button>}<button className="icon-button" aria-label="Следующая неделя" onClick={()=>setSelected(addDays(selected,7))}><ChevronRight/></button></nav>
-      {message && <div className="message" role="status">{message}{saved.changes.length>0 && <button onClick={()=>setChangesOpen(true)}>Что изменилось</button>}</div>}
+      {message && <div className="message dismissible" role="status"><span>{message}{saved.changes.length>0 && <button onClick={()=>setChangesOpen(true)}>Что изменилось</button>}</span><button className="dismiss-message" aria-label="Закрыть уведомление" onClick={()=>setMessage('')}><X size={16}/></button></div>}
       {(selected<`${data.year}-09-01` || selected>`${data.year+1}-01-31`) && <div className="message warning">Это расписание осени {data.year}. Для выбранной даты оно может быть неактуально.</div>}
       {view==='day'?renderDay(selected):week.map(date=>renderDay(date,true))}
     </main>
@@ -182,8 +188,9 @@ export default function Home() {
         <div className="source-links"><a href="https://github.com/Spacecoinsb/vmk-114-schedule/actions/workflows/pages.yml" target="_blank" rel="noreferrer">История проверок<ArrowUpRight size={15}/></a></div>
       </div>
     </details>
-    <footer className="footer"><div className="offline-state">{offlineReady?<Check size={15}/>:<WifiOff size={15}/>}<span>{offlineReady?'Доступно без интернета':'Офлайн-доступ пока не готов'}</span></div><div className="footer-links">{pdfUrl && <a href={pdfUrl} target="_blank" rel="noreferrer">PDF<ArrowUpRight size={14}/></a>}{saved.changes.length>0 && <button onClick={()=>setChangesOpen(true)}>Изменения</button>}{homework.listButton}<span>Время московское</span></div>{pdfError && <p className="pdf-error">{pdfError}</p>}</footer>
+    <footer className="footer"><div className="offline-state">{offlineReady?<Check size={15}/>:<WifiOff size={15}/>}<span>{offlineReady?'Доступно без интернета':'Офлайн-доступ пока не готов'}</span></div><div className="footer-links">{pdfUrl && <a href={pdfUrl} target="_blank" rel="noreferrer">PDF<ArrowUpRight size={14}/></a>}{saved.changes.length>0 && <button onClick={()=>setChangesOpen(true)}>Изменения</button>}{homework.listButton}{subgroups.button}<span>Время московское</span></div>{pdfError && <p className="pdf-error">{pdfError}</p>}</footer>
     {homework.dialogs}
+    {subgroups.dialog}
     <Dialog open={changesOpen} onOpenChange={setChangesOpen}><DialogContent className="changes-dialog"><DialogTitle>Что изменилось</DialogTitle><DialogDescription>Сравнение с предыдущей версией на этом устройстве.</DialogDescription>{saved.changes.map(change=><div className="change-item" key={change.id}><strong>{dayNames[change.day]} · {change.start} · {!change.before?'Добавлено':!change.after?'Убрано':'Изменено'}</strong>{change.before && <p><span>Было</span>{change.before}</p>}{change.after && <p><span>Стало</span>{change.after}</p>}</div>)}</DialogContent></Dialog>
   </div>;
 }

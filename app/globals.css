@@ -215,3 +215,13 @@ textarea { resize:vertical; width:100%; background:var(--background); border:1px
 [data-theme=dark] .status-icon { color:#8fc2a7; }
 [data-theme=dark] .empty { border-color:var(--border); }
 [data-theme=dark] .brandmark { background:#344968; }
+
+.dismissible { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:6px 10px 6px 13px; }
+.message .dismiss-message { min-width:32px; height:32px; padding:7px; margin:0; display:grid; place-items:center; border-radius:6px; text-decoration:none; flex-shrink:0; }
+.dismiss-message:hover { background:var(--muted); }
+.subgroup-field { margin:8px 0; }
+.subgroup-field label { display:block; font-size:13px; margin-bottom:7px; }
+.subgroup-field select { width:100%; padding:11px; border:1px solid var(--border); border-radius:9px; background:var(--background); color:var(--foreground); font:inherit; font-size:16px; }
+.subgroup-warning { color:#9c722b; }
+[data-theme=dark] .subgroup-warning { color:#e1bf7f; }
+.footer-links { flex-wrap:wrap; gap:10px 16px; }

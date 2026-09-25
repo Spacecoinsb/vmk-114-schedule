@@ -15,12 +15,13 @@ const FLOOR_H = 70, ROOM_H = 12, CX = 980, CZ = 390;
 const level = (floor:number) => (floor-1)*FLOOR_H;
 const px = (x:number) => x-CX, pz = (y:number) => y-CZ;
 
-function palette(dark:boolean) {
-  // Same warm palette as the timetable: sunny lecture halls, ink outlines.
-  return dark ? {slab:0x2b2720, room:0x3a352c, lecture:0xc99b16, machine:0x2f5a3f, wc:0x3b3f4a, food:0x7a4a22, place:0x4b3f66, stair:0x8a3a28,
-    edge:0x8d8574, text:'#f3eee3', textSoft:'#c9c1b1', ghost:0x5a5448}
-    : {slab:0xe9e3d6, room:0xfffdf8, lecture:0xffd23f, machine:0xcdeed6, wc:0xe6e8ef, food:0xffd9b8, place:0xe9e2ff, stair:0xffb9a6,
-    edge:0x8f8672, text:'#1d1b16', textSoft:'#5e584c', ghost:0xd6cfbf};
+// The model takes its colours from the current theme.
+function palette() {
+  const css = getComputedStyle(document.documentElement), v = (name:string) => css.getPropertyValue(name).trim() || '#888';
+  const c = (name:string) => new THREE.Color(v(name)).getHex();
+  const dark = document.documentElement.dataset.scheme === 'dark';
+  return {slab:c('--muted'), room:c('--card'), lecture:c('--lecture-soft'), machine:c('--sport'), wc:c('--muted'), food:c('--now-soft'), place:c('--consult'),
+    stair:c('--now-soft'), edge:new THREE.Color(v('--muted-foreground')).multiplyScalar(dark ? 1 : 1.1).getHex(), text:v('--foreground'), textSoft:v('--muted-foreground'), ghost:c('--border'), now:c('--now')};
 }
 const kindOf = (id:string) => /^П-/.test(id) ? 'lecture' : /^МЗ-/.test(id) ? 'machine' : 'room';
 const ICON:Record<string,string> = {wc:'WC', food:'🍽', place:'★'};
@@ -32,7 +33,7 @@ export class MapScene {
   private floors = new Map<number, {group:THREE.Group; solid:THREE.Group; labels:THREE.Mesh|null; image:THREE.Mesh|null; pick:THREE.Mesh}>();
   private dynamic = new THREE.Group(); private walker:THREE.Mesh|null = null; private walkPath:THREE.CurvePath<THREE.Vector3>|null = null;
   private mode:Mode = 'schema'; private active = 6; private frame = 0; private disposed = false; private down:{x:number; y:number}|null = null;
-  private colors = palette(false); private anim:{from:THREE.Vector3; to:THREE.Vector3; t:number}|null = null;
+  private colors = palette(); private anim:{from:THREE.Vector3; to:THREE.Vector3; t:number}|null = null;
 
   constructor(private host:HTMLElement, private onPick:(floor:number, x:number, y:number)=>void) {
     this.renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
@@ -54,7 +55,7 @@ export class MapScene {
   }
 
   private build() {
-    this.colors = palette(document.documentElement.dataset.theme === 'dark');
+    this.colors = palette();
     for (const {group} of this.floors.values()) { this.scene.remove(group); group.traverse(o => { const m = o as THREE.Mesh; m.geometry?.dispose(); }); }
     this.floors.clear();
     for (const f of FLOORS as FloorData[]) {
@@ -191,7 +192,7 @@ export class MapScene {
     this.walker = null; this.walkPath = null;
     const hl = (m:Mark) => {
       const r = m;
-      const color = m.tone === 'from' ? 0x1d1b16 : m.tone === 'to' ? 0xff5a36 : 0x1d1b16;
+      const color = m.tone === 'to' ? this.colors.now : new THREE.Color(this.colors.text).getHex();
       if (r?.box) {
         const [x0, y0, x1, y1] = r.box, g = new THREE.BoxGeometry(x1-x0+2, ROOM_H+2, y1-y0+2);
         const box = new THREE.Mesh(g, new THREE.MeshBasicMaterial({color, transparent:true, opacity:.28, depthWrite:false}));
@@ -210,7 +211,7 @@ export class MapScene {
       const path = new THREE.CurvePath<THREE.Vector3>();
       for (let i = 1; i < pts.length; i++) if (pts[i].distanceTo(pts[i-1]) > 0.01) path.add(new THREE.LineCurve3(pts[i-1], pts[i]));
       if (!path.curves.length) return;
-      const mesh = new THREE.Mesh(new THREE.TubeGeometry(path, Math.max(32, pts.length*6), 2.6, 8, false), new THREE.MeshBasicMaterial({color:0xff5a36}));
+      const mesh = new THREE.Mesh(new THREE.TubeGeometry(path, Math.max(32, pts.length*6), 2.6, 8, false), new THREE.MeshBasicMaterial({color:this.colors.now}));
       mesh.renderOrder = 3; mesh.userData.floor = floor; this.dynamic.add(mesh);
     };
     const all:THREE.Vector3[] = [];
@@ -224,7 +225,7 @@ export class MapScene {
     for (let i = 1; i < all.length; i++) if (all[i].distanceTo(all[i-1]) > 0.01) path.add(new THREE.LineCurve3(all[i-1], all[i]));
     if (!path.curves.length) return;
     this.walker = new THREE.Mesh(new THREE.SphereGeometry(5, 16, 12), new THREE.MeshBasicMaterial({color:0xffffff}));
-    const ring = new THREE.Mesh(new THREE.SphereGeometry(7, 16, 12), new THREE.MeshBasicMaterial({color:0xff5a36, transparent:true, opacity:.5}));
+    const ring = new THREE.Mesh(new THREE.SphereGeometry(7, 16, 12), new THREE.MeshBasicMaterial({color:this.colors.now, transparent:true, opacity:.5}));
     this.walker.add(ring); this.walker.userData.walker = true; this.dynamic.add(this.walker); this.walkPath = path;
     this.applyDynamic();
   }

@@ -19,7 +19,7 @@ function SceneView({mode, floor, lowest, legs, marks, focus, onPick}:{mode:Mode;
     catch { setFailed(true); return; }
     scene.current = s;
     const theme = new MutationObserver(() => s.retheme());
-    theme.observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+    theme.observe(document.documentElement, {attributes:true, attributeFilter:['data-theme','data-scheme']});
     return () => { theme.disconnect(); s.dispose(); scene.current = null; };
   }, []);
   useEffect(() => { scene.current?.setView(mode, floor, lowest); }, [mode, floor, lowest]);

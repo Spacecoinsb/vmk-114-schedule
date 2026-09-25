@@ -75,20 +75,20 @@ try {
 
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'mobile fits viewport');
   const glance=page.getByRole('region',{name:'Мой день сейчас'});
-  await glance.getByText('Пара закончится через 1 ч 20 мин',{exact:true}).waitFor();
+  await glance.getByText('1:20',{exact:true}).waitFor(); await glance.getByText('до конца пары',{exact:true}).waitFor();
   await page.getByText('идёт, ещё 1 ч 20 мин',{exact:true}).waitFor();
   await page.getByText('через 1 ч 30 мин',{exact:true}).waitFor();
   await at('2026-09-25T05:50:00Z');
-  await glance.getByText('Первая пара начнётся через 10 мин',{exact:true}).waitFor();
+  await glance.getByText('10 мин',{exact:true}).waitFor(); await glance.getByText('до первой пары',{exact:true}).waitFor();
   await at('2026-09-25T07:30:00Z');
-  await glance.getByText('Следующая пара начнётся через 10 мин',{exact:true}).waitFor();
+  await glance.getByText('10 мин',{exact:true}).waitFor(); await glance.getByText('до следующей пары',{exact:true}).waitFor();
   assert.equal(await page.locator('.lesson.current').count(),0,'finished class is no longer current');
   assert.equal(await page.locator('.lesson.past').count(),1);
   // After the last class the next teaching day opens by itself.
   await at('2026-09-25T11:30:00Z');
   await page.locator('h1',{hasText:'26 сентября'}).waitFor();
-  await page.getByText(/^Завтра · суббота/).waitFor();
-  await glance.getByText('На сегодня всё',{exact:true}).waitFor();
+  await page.locator('h1',{hasText:'Завтра, 26 сентября'}).waitFor();
+  assert.equal(await glance.count(),0,'no "now" line once the day is over');
   await page.getByRole('button',{name:'Пятница, 25 сентября',exact:true}).click();
   await page.locator('h1',{hasText:'25 сентября'}).waitFor();
   await page.getByRole('button',{name:'К ближайшим',exact:true}).click();
@@ -145,9 +145,13 @@ try {
   await at('2026-09-25T06:10:00Z');
   console.log('PASS campus map: room from timetable, stairs between floors, search, 3D, nearest toilet');
 
-  await page.getByRole('button',{name:'Тёмная тема',exact:true}).click();
+  await page.getByRole('button',{name:'Тема оформления',exact:true}).click();
+  for(const name of ['Осень','Зима','Весна','Лето','МГУ','Графит']) await page.getByRole('dialog').getByRole('button',{name,exact:true}).click();
+  await page.getByRole('dialog').getByRole('button',{name:'Ночь',exact:true}).click();
+  await page.keyboard.press('Escape');
   await page.reload();
-  assert.equal(await page.locator('html').getAttribute('data-theme'),'dark');
+  assert.equal(await page.locator('html').getAttribute('data-theme'),'night');
+  assert.equal(await page.locator('html').getAttribute('data-scheme'),'dark');
   await page.getByRole('button',{name:'Добавить задание',exact:true}).first().click();
   await page.getByLabel('Домашнее задание',{exact:true}).fill('Подготовить вопросы к занятию');
   await page.getByRole('button',{name:'Сохранить',exact:true}).click();
@@ -173,7 +177,9 @@ try {
   await page.getByRole('dialog').waitFor({state:'hidden'});
   await mkdir('test-results',{recursive:true});
   await page.screenshot({path:'test-results/dark-homework.png',fullPage:true});
-  await page.getByRole('button',{name:'Светлая тема',exact:true}).click();
+  await page.getByRole('button',{name:'Тема оформления',exact:true}).click();
+  await page.getByRole('dialog').getByRole('button',{name:'Бумага',exact:true}).click();
+  await page.keyboard.press('Escape');
   assert((await page.locator('.lesson').first().boundingBox()).y<470,'schedule starts on the first screen');
   await page.screenshot({path:'test-results/mobile.png',fullPage:true});
   console.log('PASS dark-theme persistence, dated homework, completed tasks');

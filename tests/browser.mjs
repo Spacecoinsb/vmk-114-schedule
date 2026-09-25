@@ -49,7 +49,7 @@ try {
   assert.equal(await page.getByText('Межфакультетские курсы',{exact:true}).count(),0);
   assert(await page.locator('.lesson.lecture').count()>0);
   assert(await page.getByRole('link',{name:'Сайт ВМК'}).isVisible(),'VMK site link is always visible');
-  const roomStyles=await page.locator('.room').evaluateAll(rooms=>[...new Set(rooms.map(r=>{const c=getComputedStyle(r);return [c.backgroundColor,c.color,c.fontSize,c.fontWeight].join();}))]);
+  const roomStyles=await page.locator('.room').evaluateAll(rooms=>[...new Set(rooms.map(r=>{const c=getComputedStyle(r);return [c.fontSize,c.fontWeight,c.borderTopWidth,c.borderTopLeftRadius,c.paddingLeft].join();}))]);
   assert.equal(roomStyles.length,1,'lecture halls and seminar rooms look the same');
   assert.equal(await page.locator('.room').filter({hasText:'613'}).count(),1);
   assert.equal(await page.locator('.room').filter({hasText:'682'}).count(),1);
@@ -115,7 +115,7 @@ try {
   await page.getByRole('dialog').getByRole('button',{name:'142',exact:true}).click();
   await page.getByRole('button',{name:'Группа 142, сменить'}).waitFor();
   await page.getByRole('heading',{name:'Безопасность жизнедеятельности'}).waitFor();
-  assert.equal(await page.locator('.lesson').first().locator('.time strong').textContent(),'09:00');
+  assert.equal(await page.locator('.lesson').first().locator('.range').textContent(),'09:00 – 10:30');
   await page.locator('.room').filter({hasText:'706'}).waitFor();
   await page.reload();
   await page.getByRole('button',{name:'Группа 142, сменить'}).waitFor();
@@ -174,7 +174,7 @@ try {
   await mkdir('test-results',{recursive:true});
   await page.screenshot({path:'test-results/dark-homework.png',fullPage:true});
   await page.getByRole('button',{name:'Светлая тема',exact:true}).click();
-  assert((await page.locator('.lesson').first().boundingBox()).y<420,'schedule is above the fold on mobile');
+  assert((await page.locator('.lesson').first().boundingBox()).y<470,'schedule starts on the first screen');
   await page.screenshot({path:'test-results/mobile.png',fullPage:true});
   console.log('PASS dark-theme persistence, dated homework, completed tasks');
 

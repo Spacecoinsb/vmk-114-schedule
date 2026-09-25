@@ -50,7 +50,7 @@
 :root {
   --card-foreground:var(--foreground); --popover:var(--card); --popover-foreground:var(--foreground);
   --primary:var(--foreground); --primary-foreground:var(--background); --accent:var(--muted); --accent-foreground:var(--foreground);
-  --input:var(--border); --ring:var(--now); --radius:1rem; --brand:var(--foreground); --warn:var(--warn-fg);
+  --input:var(--border); --ring:var(--muted-foreground); --radius:1rem; --brand:var(--foreground); --warn:var(--warn-fg);
 }
 :root:not([data-theme=msu]) { --mark-bg:var(--lecture); --mark-fg:var(--lecture-ink); }
 @theme inline {
@@ -361,3 +361,18 @@ textarea { font:inherit; }
 .pdf-scroll { flex:1; overflow:auto; -webkit-overflow-scrolling:touch; padding:10px; }
 .pdf-pages canvas { display:block; width:100%; height:auto; margin:0 auto 10px; border-radius:6px; background:#fff; box-shadow:var(--shadow); }
 .pdf-status { text-align:center; color:var(--muted-foreground); padding:30px 10px; }
+
+/* Heading: one line for the date, one line for count · status. */
+h1 { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.heading-text { flex:1; }
+.eyebrow { flex-wrap:nowrap; white-space:nowrap; min-width:0; }
+.eyebrow .count { flex-shrink:0; }
+.eyebrow .count::after { content:'·'; margin-left:8px; opacity:.6; }
+.eyebrow .text-button { flex-shrink:0; }
+.eyebrow .status { min-width:0; overflow:hidden; }
+[data-slot=dialog-close]:focus-visible, [data-slot=dialog-content] button:focus-visible { outline:2px solid var(--muted-foreground); outline-offset:2px; }
+[data-slot=dialog-close] { opacity:.7; }
+[data-theme=msu] .heading .view-switch { background:#0a0f2e59; box-shadow:inset 0 0 0 1px #ffffff1f; backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); }
+[data-theme=msu] .heading .view-switch button { color:#e6e9ffcc; }
+[data-theme=msu] .heading .view-switch button[aria-pressed=true] { background:#ffffff2e; color:#fff; }
+[data-theme=msu] .map-search, [data-theme=msu] .floor-switch button, [data-theme=msu] .map-modes { background:color-mix(in srgb, var(--card) 78%, transparent); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); }

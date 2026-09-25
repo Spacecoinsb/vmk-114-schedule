@@ -49,7 +49,9 @@ test('a changed PDF replaces an older timetable, not just its notification',asyn
   const result=await checkSource({previous:old,fetcher,parse,now});
   assert.equal(result.snapshot.status,'ok'); assert.notEqual(result.snapshot.hash,old.hash);
   assert.equal(teacherRows(result.snapshot.schedule.lessons.find(l=>l.id==='3-10:30').detail)[0].room,'615');
-  assert.match(diffSchedules(old.schedule,result.snapshot.schedule)[0].after,/615/);
+  const [change]=diffSchedules(old.schedule,result.snapshot.schedule);
+  assert.match(change.after,/615/);
+  assert.deepEqual(change.details,['Аудитория: 500 → 615']);
 });
 test('network, malformed page/PDF, and parse failures retain previous data and report failure',async()=>{
   const failures=[
@@ -87,3 +89,14 @@ test('invalid client payloads are rejected',()=>{
   assert.equal(validSnapshot({...seed,checkedAt:'not a date'}),false);
 });
 
+test('changes are described in plain words',()=>{
+  const base=seed.schedule.lessons.find(l=>l.id==='4-12:50');
+  const moved={...base,detail:'Бордаченкова Е.А. 613\nПанфёров А.А. 700',raw:'x'};
+  assert.deepEqual(diffSchedules({lessons:[base]},{lessons:[moved]})[0].details,['Аудитория (Панфёров А.А.): 682 → 700']);
+  const teacher={...base,detail:'Иванов И.И. 613\nПанфёров А.А. 682',raw:'y'};
+  assert.deepEqual(diffSchedules({lessons:[base]},{lessons:[teacher]})[0].details,['Преподаватель: Бордаченкова Е.А., Панфёров А.А. → Иванов И.И., Панфёров А.А.']);
+  const later={...base,end:'14:40',raw:'z'};
+  assert.deepEqual(diffSchedules({lessons:[base]},{lessons:[later]})[0].details,['Время: 12:50–14:25 → 12:50–14:40']);
+  assert.match(diffSchedules({lessons:[base]},{lessons:[]})[0].details[0],/^Пара убрана: Практикум на ЭВМ/);
+  assert.match(diffSchedules({lessons:[]},{lessons:[base]})[0].details[0],/^Новая пара: Практикум на ЭВМ, 12:50–14:25/);
+});

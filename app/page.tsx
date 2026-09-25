@@ -1,10 +1,12 @@
-import React, {useEffect, useRef, useState, type TouchEvent} from 'react';
+import React, {createContext, useContext, useEffect, useRef, useState, type TouchEvent} from 'react';
 import {ArrowUpRight, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, RefreshCw, WifiOff, X} from 'lucide-react';
 import {Dialog, DialogContent, DialogTitle, DialogDescription} from '@/components/ui/dialog';
 import {DEFAULT_GROUP, cleanTitle, groupSchedule, isDisplayedLesson, teacherRows, validSnapshot, verification} from '@/lib/schedule-model.mjs';
 import {ThemeButton,HomeworkButton,HomeworkEditor,useHomework,type Task} from '@/components/personal';
 import {useSubgroups} from '@/components/subgroups';
-import {dayGlance, duration, focusDate, minutes} from '@/lib/day-glance.mjs';
+import {dayGlance, duration, focusDate, minutes, roomFor} from '@/lib/day-glance.mjs';
+import {findRoom} from '@/lib/map-route.mjs';
+import {CampusMap} from '@/components/campus-map';
 import seed from '@/public/source.json';
 
 type Lesson = {id:string; day:number; start:string; end:string; title:string; detail:string; room:string; type:string; raw:string; rule:{from?:string; dates?:string[]}|null};
@@ -62,8 +64,14 @@ function persist(value:Saved) {
   catch { throw Error('Не удалось сохранить расписание на устройстве. Освободи место и повтори обновление.'); }
 }
 
+// Tapping a room opens it on the campus map.
+const OpenRoom = createContext<(room:string,date?:string,start?:string)=>void>(()=>{});
+const LessonAt = createContext<{date?:string; start?:string}>({});
 function Room({room,note=''}:{room:string; note?:string}) {
-  return <span className="room" aria-label={`Аудитория ${room}${note?', '+note:''}`}>{room}{note && <span className="room-note">{note}</span>}</span>;
+  const open = useContext(OpenRoom), at = useContext(LessonAt), onMap = !!findRoom(room.split(',')[0]);
+  const content = <>{room}{note && <span className="room-note">{note}</span>}</>;
+  return onMap ? <button className="room" aria-label={`Аудитория ${room}${note?', '+note:''}, показать на карте`} onClick={()=>open(room.split(',')[0],at.date,at.start)}>{content}</button>
+    : <span className="room" aria-label={`Аудитория ${room}${note?', '+note:''}`}>{content}</span>;
 }
 type Editor = {task?:Task; editing:boolean; open:()=>void; editor:React.ReactNode};
 function LessonCard({lesson,date,today,clock,change,next,hw,preferredTeacher,stacked}:{lesson:Lesson;date:string;today:string;clock:string;change?:Change;next:boolean;hw:Editor;preferredTeacher?:string;stacked:boolean}) {
@@ -77,7 +85,7 @@ function LessonCard({lesson,date,today,clock,change,next,hw,preferredTeacher,sta
   const missingTeacher = !!preferredTeacher && allRows.length>0 && lesson.type!=='lecture' && !matched.length;
   const note = lesson.rule?.dates ? 'Только '+lesson.rule.dates.map(d=>formatDate(d,{day:'numeric',month:'short'})).join(', ') : lesson.rule?.from ? 'С '+formatDate(lesson.rule.from) : '';
   const label = now ? `идёт, ещё ${duration(left)}` : next ? `через ${duration(left)}` : '';
-  return <article className={`lesson ${lesson.type} ${now?'current':''} ${past?'past':''}`}>
+  return <LessonAt.Provider value={{date,start:lesson.start}}><article className={`lesson ${lesson.type} ${now?'current':''} ${past?'past':''}`}>
     <div className="time"><strong>{lesson.start}</strong><span>{lesson.end}</span></div>
     <div className="lesson-body">
       <div className="lesson-head">
@@ -95,7 +103,7 @@ function LessonCard({lesson,date,today,clock,change,next,hw,preferredTeacher,sta
       {hw.task && !hw.editing && <button className={`hw-preview ${hw.task.done?'task-done':''}`} onClick={hw.open}>{hw.task.text}</button>}
       {hw.editing && hw.editor}
     </div>
-  </article>;
+  </article></LessonAt.Provider>;
 }
 
 export default function Home() {
@@ -104,6 +112,7 @@ export default function Home() {
   const [today,setToday] = useState(isoMoscow), [clock,setClock] = useState(clockMoscow);
   // null = follow the current time (today, or the next teaching day once today's classes are over).
   const [pinned,setPinned] = useState<string|null>(null), [slide,setSlide] = useState('');
+  const [tab,setTab] = useState<'schedule'|'map'>('schedule'), [mapTarget,setMapTarget] = useState<{to:string; from:string|null; n:number}|null>(null);
   const [view,setView] = useState('day'), [busy,setBusy] = useState(false), [online,setOnline] = useState(navigator.onLine);
   const [message,setMessage] = useState(''), [syncError,setSyncError] = useState(''), [offlineReady,setOfflineReady] = useState(false);
   const [changesOpen,setChangesOpen] = useState(false), [statusOpen,setStatusOpen] = useState(false), [pdfUrl,setPdfUrl] = useState(''), [pdfError,setPdfError] = useState('');
@@ -225,6 +234,17 @@ export default function Home() {
     window.addEventListener('keydown',onKey); return()=>window.removeEventListener('keydown',onKey);
   });
 
+  // The class before this one tells where the walk starts.
+  function openRoom(room:string, date=today, start='') {
+    const to=findRoom(room);
+    if(!to)return;
+    const day=data.lessons.filter(l=>isDisplayedLesson(l) && l.day===weekday(date) && active(l,date) && (!start || l.start<start)).sort((a,b)=>a.start.localeCompare(b.start));
+    const prev=[...day].reverse().map(l=>findRoom(roomFor(l,subgroups.selected)||'')).find(Boolean);
+    setMapTarget({to:to.key, from:start && prev && prev.key!==to.key ? prev.key : null, n:Date.now()});
+    setTab('map');
+    scrollTo({top:0});
+  }
+  const nextLesson=todayLessons.find(l=>l.end>clock && findRoom(roomFor(l,subgroups.selected)||''));
   function editorFor(date:string,lesson:Lesson):Editor {
     const id=date+':'+lesson.id, task=homework.tasks.find(t=>t.id===id), editing=homework.editing===id;
     const draft:Task=task||{id,date,subject:cleanTitle(lesson),text:'',done:false};
@@ -239,7 +259,7 @@ export default function Home() {
     </section>;
   }
 
-  return <div className="shell">
+  return <OpenRoom.Provider value={openRoom}><div className="shell">
     <header className="topbar">
       <button className="brand" onClick={()=>setGroupsOpen(true)} aria-label={`Группа ${groupName}, сменить`}><span className="brandmark">ВМК</span><span><strong>{groupName} группа <ChevronDown size={14}/></strong><small>Расписание · МГУ</small></span></button>
       <div className="header-actions">
@@ -248,6 +268,11 @@ export default function Home() {
       </div>
     </header>
 
+    <nav className="tabs" aria-label="Разделы"><button aria-pressed={tab==='schedule'} onClick={()=>setTab('schedule')}>Расписание</button><button aria-pressed={tab==='map'} onClick={()=>setTab('map')}>Карта</button></nav>
+
+    {tab==='map' ? <CampusMap target={mapTarget?.to ?? null} fromHint={mapTarget?.from ?? null} key={mapTarget?.n ?? 0}>
+      {nextLesson && <button onClick={()=>openRoom(roomFor(nextLesson,subgroups.selected),today,nextLesson.start)}>К паре {nextLesson.start}: {roomFor(nextLesson,subgroups.selected)}</button>}
+    </CampusMap> : <>
     <div className="toolbar">
       <div className="view-switch" role="group" aria-label="Вид расписания"><button aria-pressed={view==='day'} onClick={()=>setView('day')}>День</button><button aria-pressed={view==='week'} onClick={()=>setView('week')}>Неделя</button></div>
       <button className={`status ${tone}`} onClick={()=>setStatusOpen(true)} aria-label={`Статус проверки: ${statusText}`}>
@@ -281,6 +306,7 @@ export default function Home() {
       <div className="footer-links">{homework.listButton}{subgroups.button}<button onClick={()=>setChangesOpen(true)}>Изменения</button>{pdfUrl && <a href={pdfUrl} target="_blank" rel="noreferrer">PDF</a>}</div>
       <span className="footer-note">Расписание от {data.sourceDate}</span>
     </footer>
+    </>}
 
     <Dialog open={statusOpen} onOpenChange={setStatusOpen}><DialogContent className="changes-dialog">
       <DialogTitle>Актуальность расписания</DialogTitle>
@@ -312,5 +338,5 @@ export default function Home() {
     <Dialog open={groupsOpen} onOpenChange={setGroupsOpen}><DialogContent className="changes-dialog"><DialogTitle>Группа</DialogTitle><DialogDescription>Все группы первого курса из PDF ВМК, доступны и без интернета.</DialogDescription>
       <div className="group-grid">{Object.keys(table.groups).sort().map(name=><button key={name} aria-pressed={name===groupName} onClick={()=>setGroup(name)}>{name}</button>)}</div>
     </DialogContent></Dialog>
-  </div>;
+  </div></OpenRoom.Provider>;
 }

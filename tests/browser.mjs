@@ -124,6 +124,27 @@ try {
   await page.locator('.room').filter({hasText:'507'}).waitFor();
   console.log('PASS switching between all first-course groups');
 
+  // A room in the timetable opens the campus map with a route from the previous class.
+  await at('2026-09-24T07:00:00Z');
+  await page.getByRole('button',{name:/Аудитория 790, показать на карте/}).click();
+  await page.getByRole('button',{name:'Карта',exact:true,pressed:true}).waitFor();
+  await page.getByText('Поднимись по лестнице В на 7 этаж').waitFor();
+  await page.getByText('Старт: аудитория 615, 6 этаж, северное крыло').waitFor();
+  assert.equal(await page.locator('.floor-switch button.has-route').count(),2);
+  await page.getByLabel('Поиск на карте').fill('диетка');
+  await page.getByRole('option',{name:/Столовая «Диетка»/}).click();
+  await page.getByRole('button',{name:'Сюда',exact:true}).click();
+  await page.getByText(/Спустись по лестнице . на 2 этаж/).waitFor();
+  await page.getByRole('button',{name:'3D'}).click();
+  assert.equal(await page.locator('.plane').count(),5);
+  await page.locator('.plane').filter({hasText:'2 этаж'}).click({force:true});
+  await page.getByRole('button',{name:'2',exact:true,pressed:true}).waitFor();
+  await page.getByRole('button',{name:'Ближайший туалет'}).click();
+  await page.getByText(/туалет/).first().waitFor();
+  await page.getByRole('button',{name:'Расписание',exact:true}).click();
+  await at('2026-09-25T06:10:00Z');
+  console.log('PASS campus map: room from timetable, stairs between floors, search, 3D, nearest toilet');
+
   await page.getByRole('button',{name:'Тёмная тема',exact:true}).click();
   await page.reload();
   assert.equal(await page.locator('html').getAttribute('data-theme'),'dark');
@@ -168,6 +189,7 @@ try {
   await page.getByRole('link',{name:'PDF',exact:true}).waitFor();
   const offlinePdf=await page.evaluate(async()=>{const link=[...document.querySelectorAll('.footer a')].find(a=>a.textContent==='PDF');const response=await fetch(link.href);return {ok:response.ok,size:(await response.arrayBuffer()).byteLength};});
   assert(offlinePdf.ok && offlinePdf.size>1000);
+  assert(await page.evaluate(async()=>(await fetch('map/f6.jpg')).ok),'floor plans work offline');
   console.log('PASS genuine browser offline mode: full reload, 21 displayed lessons and saved PDF');
   await context.setOffline(false);
   await page.evaluate(()=>window.dispatchEvent(new Event('online')));

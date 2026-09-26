@@ -126,7 +126,7 @@ export class MapScene {
 
   private themeModel(root:THREE.Group) {
     const dark=document.documentElement.dataset.scheme==='dark';
-    const shades:Record<string,number>={slab:0x23303a,floor:0x33434a,room:0x47565b,lecture:0x35655f,machine:0x3c576f,wc:0x435577,food:0x75604c,place:0x5c526d,wall:0x9daeb4,cap:0xc5d4d4,shadow:0x24363c,stair:0x577b7c,steel:0x9faeb5,lift:0x6c899c,rail:0xb8cbd0};
+    const shades:Record<string,number>={glass:0x4f7385,door:0x6e5a45,slab:0x23303a,floor:0x33434a,room:0x47565b,lecture:0x35655f,machine:0x3c576f,wc:0x435577,food:0x75604c,place:0x5c526d,wall:0x9daeb4,cap:0xc5d4d4,shadow:0x24363c,stair:0x577b7c,steel:0x9faeb5,lift:0x6c899c,rail:0xb8cbd0};
     root.traverse(o=>{
       const mesh=o as THREE.Mesh; if(!mesh.isMesh)return;
       const m=mesh.material as THREE.MeshStandardMaterial;
@@ -290,52 +290,92 @@ export class MapScene {
     const t = performance.now()/1000;
     if (this.walker && this.walkPath) this.walker.position.copy(this.walkPath.getPointAt((t*0.18)%1));
     for (const o of this.dynamic.children) if (o.userData.pin) o.children[0].position.y = 30 + Math.sin(t*3)*3;
-    // Labels keep their size on screen in the flat view.
     this.renderer.render(this.scene, this.camera);
     this.drawLabels();
   }
 
+  // Room numbers are printed on the floor of each room, like on the paper plan: along the room's
+  // long side, sized to fill it, with a contrasting outline. They lie in the floor plane, so in 3D
+  // they turn and tilt with the model. They never get smaller on screen than a readable size;
+  // when zoomed out they outgrow their rooms and neighbours then give way to each other.
   private drawLabels() {
     const ctx = this.labelContext, w = this.host.clientWidth, h = this.host.clientHeight;
     const ratio = Math.min(devicePixelRatio, 2);
     ctx.setTransform(ratio,0,0,ratio,0,0); ctx.clearRect(0,0,w,h);
     if (this.mode === 'pdf') return;
     const f = (FLOORS as FloorData[]).find(q => q.floor === this.active)!;
-    const point = (x:number,y:number,height=ROOM_H+2) => {
-      const p = new THREE.Vector3(px(x),level(this.active)+height,pz(y)).project(this.camera);
-      return {x:(p.x+1)*w/2,y:(1-p.y)*h/2,visible:p.z<1 && p.x>-1.1 && p.x<1.1 && p.y>-1.1 && p.y<1.1};
+    const floorY = level(this.active) + 1.4;
+    const project = (x:number, z:number) => {
+      const p = new THREE.Vector3(px(x), floorY, pz(z)).project(this.camera);
+      return {x:(p.x+1)*w/2, y:(1-p.y)*h/2, ok:p.z>-1 && p.z<1};
     };
     const selected = new Set(this.marks.filter(m=>m.floor===this.active).map(m=>`${m.x}:${m.y}`));
-    const ink = document.documentElement.dataset.scheme==='dark' ? '#f7f8ff' : '#20202a';
-    const bg = document.documentElement.dataset.scheme==='dark' ? 'rgba(19,26,54,.88)' : 'rgba(255,255,252,.9)';
+    const dark = document.documentElement.dataset.scheme==='dark';
+    const ink = dark ? '#ffffff' : '#10131c', soft = dark ? '#d5dcf5' : '#3b4152';
+    const halo = dark ? 'rgba(9,13,30,.94)' : 'rgba(255,255,255,.96)';
     const accent = `#${this.colors.now.toString(16).padStart(6,'0')}`;
-    const occupied:{x:number;y:number;w:number;h:number}[] = [];
+    const family = getComputedStyle(this.host).fontFamily || 'system-ui, sans-serif';
+    const MIN = 11.5, MAX = 30;
+    // Buttons and badges over the map keep their space, so no number hides underneath them.
+    const origin = this.host.getBoundingClientRect();
+    type P = {x:number;y:number};
+    const occupied:P[][] = [...this.host.querySelectorAll('.map-zoom, .map-orientation, .scene-hint')].map(el=>el.getBoundingClientRect())
+      .map(r=>[{x:r.left-origin.left,y:r.top-origin.top},{x:r.right-origin.left,y:r.top-origin.top},{x:r.right-origin.left,y:r.bottom-origin.top},{x:r.left-origin.left,y:r.bottom-origin.top}]);
+    // Turned and tilted labels are compared as the quadrilaterals they really cover (separating axes).
+    const apart = (a:P[], b:P[]) => [a, b].some(poly => poly.some((p, i) => {
+      const q = poly[(i+1)%poly.length], nx = q.y-p.y, ny = p.x-q.x, len = Math.hypot(nx, ny) || 1;
+      const span = (pts:P[]) => pts.map(t => (t.x*nx + t.y*ny)/len);
+      const sa = span(a), sb = span(b);
+      return Math.max(...sa) + 2 < Math.min(...sb) || Math.max(...sb) + 2 < Math.min(...sa);
+    }));
     const labels = [
-      ...f.rooms.map(r=>({text:r.id,x:r.x,y:r.y,box:r.box,priority:(r.box[2]-r.box[0])*(r.box[3]-r.box[1])})),
-      ...f.places.filter(p=>p.kind==='wc'||p.kind==='food').map(p=>({text:p.kind==='wc'?'WC':p.name.replace(/\s*\(.*\)/,'').replace(/^Столовая /,''),x:p.x,y:p.y,box:p.box,priority:2000})),
-      ...f.stairs.map(s=>({text:`Л ${s.id}`,x:s.x,y:s.y,box:s.box,priority:900})),
-    ].sort((a,b)=>b.priority-a.priority);
+      // A capital letter suffix: in this font a small «б» is easy to misread as «6» (733б → 7336).
+      ...f.rooms.map(r=>({text:r.id.replace(/(\d)([а-я])$/, (_, d:string, l:string)=>d+l.toUpperCase()),x:r.x,y:r.y,box:r.box as Box|undefined,kind:'room',priority:(r.box[2]-r.box[0])*(r.box[3]-r.box[1])})),
+      ...f.places.filter(p=>p.kind==='wc'||p.kind==='food'||(p.kind==='place'&&p.box)).map(p=>({text:p.kind==='wc'?'WC':p.name.replace(/\s*\(.*\)/,'').replace(/^Столовая /,''),x:p.x,y:p.y,box:p.box,kind:'place',priority:1200})),
+      ...f.stairs.map(s=>({text:`Л ${s.id}`,x:s.x,y:s.y,box:s.box,kind:'stair',priority:600})),
+    ].map(item=>({...item, important:selected.has(`${item.x}:${item.y}`)}))
+      .sort((a,b)=>Number(b.important)-Number(a.important) || b.priority-a.priority);
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.lineJoin='round';
     for (const item of labels) {
-      const p = point(item.x,item.y); if (!p.visible) continue;
-      const b=item.box;
-      const corners=b ? [point(b[0],b[1]),point(b[2],b[1]),point(b[2],b[3]),point(b[0],b[3])] : [point(item.x-25,item.y),point(item.x+25,item.y)];
-      const roomWidth=Math.max(...corners.map(q=>q.x))-Math.min(...corners.map(q=>q.x));
-      const important = selected.has(`${item.x}:${item.y}`);
-      ctx.font = `${important?'800':'700'} 12px system-ui, sans-serif`;
-      const textWidth = ctx.measureText(item.text).width, pillWidth = textWidth+11;
-      if (!important && roomWidth < pillWidth+2) continue;
-      const rect = {x:p.x-pillWidth/2,y:p.y-10,w:pillWidth,h:20};
-      if (rect.x<2||rect.x+rect.w>w-2||rect.y<2||rect.y+rect.h>h-2) continue;
-      if (!important && occupied.some(q=>rect.x<q.x+q.w+2&&rect.x+rect.w+2>q.x&&rect.y<q.y+q.h+2&&rect.y+rect.h+2>q.y)) continue;
-      occupied.push(rect);
-      ctx.fillStyle = important ? accent : bg;
-      ctx.beginPath();
-      if (typeof ctx.roundRect==='function') ctx.roundRect(rect.x,rect.y,rect.w,rect.h,5);
-      else ctx.rect(rect.x,rect.y,rect.w,rect.h);
-      ctx.fill();
-      ctx.fillStyle = important ? '#fff' : ink;
-      ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(item.text,p.x,p.y+.5);
+      const b = item.box ?? [item.x-20, item.y-10, item.x+20, item.y+10];
+      const cx = (b[0]+b[2])/2, cz = (b[1]+b[3])/2, c = project(cx, cz);
+      if (!c.ok) continue;
+      const ex = project(cx+1, cz), ez = project(cx, cz+1);
+      const X = {x:ex.x-c.x, y:ex.y-c.y}, Z = {x:ez.x-c.x, y:ez.y-c.y};
+      // Text runs along the longer side of the room; narrow rooms get it written upwards.
+      const along = (b[2]-b[0]) >= (b[3]-b[1])*.9;
+      let B = along ? X : {x:-Z.x, y:-Z.y}, D = along ? Z : X;
+      const L = along ? b[2]-b[0] : b[3]-b[1], S = along ? b[3]-b[1] : b[2]-b[0];
+      // Keep it readable from any side the camera turns to: never upside down, never mirrored.
+      // Left-to-right when the line is closer to horizontal, bottom-to-top when it is closer to vertical.
+      if (Math.abs(B.x) > Math.abs(B.y)*.7 ? B.x < 0 : B.y > 0) { B = {x:-B.x, y:-B.y}; D = {x:-D.x, y:-D.y}; }
+      if (B.x*D.y - B.y*D.x < 0) D = {x:-D.x, y:-D.y};
+      const lb = Math.hypot(B.x, B.y), ld0 = Math.hypot(D.x, D.y);
+      if (lb < 1e-4 || ld0 < 1e-4) continue;
+      // A very flat view squashes text; stand it up a little so it stays legible.
+      const stretch = Math.max(1, .62*lb/ld0), ld = ld0*stretch;
+      D = {x:D.x*stretch, y:D.y*stretch};
+      const weight = item.important ? '900' : item.kind==='room' ? '800' : '700';
+      ctx.font = `${weight} 100px ${family}`;
+      const perPx = ctx.measureText(item.text).width/100;            // text width per 1px of font size
+      // Size in floor units that fills the room, then clamped to the readable range on screen.
+      const fit = Math.min(S*.6, L*.84/perPx) * (item.kind==='room' ? 1 : .8);
+      const size = THREE.MathUtils.clamp(fit*ld, MIN, MAX) + (item.important ? 2 : 0) - (item.kind==='stair' ? 1.5 : 0);
+      const tw = perPx*size*lb/ld, th = size;                         // on-screen extents along B and D
+      const ub = {x:B.x/lb, y:B.y/lb}, ud = {x:D.x/ld, y:D.y/ld};
+      const corners = [[-1,-1],[1,-1],[1,1],[-1,1]].map(([i,j])=>({x:c.x+ub.x*tw/2*i+ud.x*th/2*j*1.1, y:c.y+ub.y*tw/2*i+ud.y*th/2*j*1.1}));
+      if (corners.every(q=>q.x<0) || corners.every(q=>q.x>w) || corners.every(q=>q.y<0) || corners.every(q=>q.y>h)) continue;
+      if (!item.important && occupied.some(q=>!apart(q, corners))) continue;
+      occupied.push(corners);
+      // Draw in text space: 1 unit = 1 screen px across the letters, stretched along the baseline by perspective.
+      ctx.setTransform(ratio*ub.x*lb/ld, ratio*ub.y*lb/ld, ratio*ud.x, ratio*ud.y, ratio*c.x, ratio*c.y);
+      ctx.font = `${weight} ${size}px ${family}`;
+      ctx.lineWidth = Math.max(3, size*.3); ctx.strokeStyle = halo;
+      ctx.strokeText(item.text, 0, size*.04);
+      ctx.fillStyle = item.important ? accent : item.kind==='room' ? ink : soft;
+      ctx.fillText(item.text, 0, size*.04);
     }
+    ctx.setTransform(ratio,0,0,ratio,0,0);
   }
 
   retheme() { this.colors=palette(); for(const e of this.floors.values())this.themeModel(e.solid); }

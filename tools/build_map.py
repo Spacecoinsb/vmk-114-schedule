@@ -126,6 +126,18 @@ CORRIDORS = {
   7: [[(148, 125), (148, 578), (1815, 578), (1815, 125)], [(148, 578), (148, 645)], [(1815, 578), (1815, 645)]],
 }
 
+# Boxes measured on the plans by hand, in map coordinates: flood fill stops at the toilet
+# fixtures, so it finds only the middle aisle. «Сачок» is a hall south of the corridor.
+MEASURED = {
+  1: {'wc-m': [433, 491, 492, 554], 'wc-f': [1491, 491, 1551, 554]},
+  2: {'wc-f': [433, 491, 493, 556], 'wc-m': [1491, 491, 1552, 556]},
+  5: {'wc-m': [172, 486, 228, 565], 'wc-f': [1738, 486, 1794, 565]},
+  6: {'wc-f': [176, 482, 230, 565], 'wc-m': [1739, 482, 1793, 563], 'sachok': [925.5, 600, 1042, 662]},
+  7: {'wc-m': [176, 481, 230, 564], 'wc-f': [1739, 481, 1793, 564]},
+}
+# Halls open to the corridor: no wall on the corridor side in the 3D model.
+OPEN = {'sachok'}
+
 # Small points (machines) are shown as icons, not rooms.
 ICON_ONLY = {'coffee', 'robocopy', 'vending1'}
 
@@ -181,6 +193,11 @@ def main():
         stairs = [{'id': STAIR_NAMES[i], **dict(zip('xy', R(x, y))), 'box': RB((x - 13, y - 22, x + 13, y + 22))} for i, (x, y) in enumerate(STAIRS[floor])]
         places = [{'id': pid, 'name': name, 'kind': kind, **dict(zip('xy', R(x, y))), **({} if pid in ICON_ONLY else {'box': RB(box(x, y))}),
                    **({'note': NOTES[pid]} if pid in NOTES else {})} for pid, name, kind, x, y in PLACES[floor]]
+        for q in places:
+            if q['id'] in MEASURED.get(floor, {}):
+                b = MEASURED[floor][q['id']]; q['box'] = b; q['x'] = round((b[0] + b[2]) / 2, 1)
+                q['y'] = round((b[1] + b[3]) / 2, 1) if q['id'] not in OPEN else q['y']
+            if q['id'] in OPEN: q['open'] = True
         places += [{'id': f'lift-{i + 1}', 'name': 'Лифт', 'kind': 'lift', **dict(zip('xy', R(x, y))), 'box': RB((x - 11, y - 22, x + 11, y + 22))}
                    for i, (x, y) in enumerate(LIFTS[floor])]
         data['floors'].append({

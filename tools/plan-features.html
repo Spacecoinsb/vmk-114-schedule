@@ -1,0 +1,37 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Plan features</title>
+<!-- Open through the dev server (npx vite → /tools/plan-features.html). Save the JSON below as lib/map-plan.json. -->
+<style>body{margin:0;font:12px system-ui,sans-serif}svg{display:block;width:100%;height:auto;margin-bottom:8px}pre{white-space:pre-wrap;word-break:break-all;font-size:10px}</style>
+<p id="status">Анализ планов…</p>
+<div id="views"></div>
+<pre id="out"></pre>
+<script type="module">
+import {analyseFloor} from './plan-features.mjs';
+const {floors} = await (await fetch('/lib/map-data.json')).json();
+// Vector floors (tools/plan-vectors.mjs) are drawn crisply at 2 px per map unit; scanned floors use their picture.
+const vectors = await fetch('/tools/out/plan-vectors.json').then(r => r.ok ? r.json() : {}).catch(() => ({}));
+const result = {}, views = document.getElementById('views');
+for (const f of floors) {
+  let c;
+  if (vectors[f.floor]) {
+    const [x0,y0,x1,y1] = f.imageBox, k = 2;
+    c = new OffscreenCanvas(Math.round((x1-x0)*k), Math.round((y1-y0)*k));
+    const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+    g.strokeStyle = '#000'; g.lineWidth = 1.6; g.lineCap = 'square';
+    for (const line of vectors[f.floor]) { g.beginPath(); line.forEach(([x,y], i) => g[i ? 'lineTo' : 'moveTo']((x-x0)*k, (y-y0)*k)); g.stroke(); }
+  } else {
+    const img = new Image(); img.src = `/${f.image}`; await img.decode();
+    c = new OffscreenCanvas(img.naturalWidth, img.naturalHeight); c.getContext('2d').drawImage(img, 0, 0);
+  }
+  const g = c.getContext('2d');
+  result[f.floor] = analyseFloor(f, g.getImageData(0, 0, c.width, c.height));
+  const [x0,y0,x1,y1] = f.imageBox, r = result[f.floor];
+  const rect = (b, col) => `<rect x="${b[0]}" y="${b[1]}" width="${b[2]-b[0]}" height="${b[3]-b[1]}" fill="${col}" fill-opacity=".25" stroke="${col}" stroke-width="1.2"/>`;
+  views.insertAdjacentHTML('beforeend', `<svg viewBox="${x0} ${y0} ${x1-x0} ${y1-y0}"><image href="/${f.image}" x="${x0}" y="${y0}" width="${x1-x0}" height="${y1-y0}" preserveAspectRatio="none" opacity=".55"/>
+    ${r.rooms.map(b=>rect(b,'#c0c')).join('')}${r.lifts.flatMap(l=>l.cars).map(b=>rect(b,'#00f')).join('')}</svg>`);
+}
+window.result = result;
+document.getElementById('status').textContent = 'Готово: сохраните текст ниже в lib/map-plan.json';
+document.getElementById('out').textContent = JSON.stringify(result);
+</script>

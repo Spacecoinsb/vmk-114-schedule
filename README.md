@@ -36,6 +36,7 @@ PLAYWRIGHT_MODULE=<путь к playwright/index.mjs> BROWSER_CHANNEL=chromium no
 | `app/page.tsx` | интерфейс расписания |
 | `components/campus-map.tsx`, `components/map-scene.ts` | карта корпуса (three.js) |
 | `tools/build_map.py` | разметка кабинетов по планам этажей из `tools/floor-plans.pdf` |
+| `tools/build-map-models.mjs` | объёмные модели этажей из разметки (см. `tools/map-models.md`) |
 
 Пересобрать карту после правки разметки:
 

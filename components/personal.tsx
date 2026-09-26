@@ -2,9 +2,9 @@ import {useEffect,useRef,useState} from 'react';
 import {Palette,NotebookPen,Check} from 'lucide-react';
 import {Dialog,DialogContent,DialogTitle,DialogDescription} from './ui/dialog';
 
-// name, label, scheme, swatch colours (background, lecture, now), optional layout style
+// name, label, scheme, swatch colours (background, lecture, now)
 export const THEMES = [
-  ['onyx','Оникс','dark',['#0d0d0f','#c9a96e','#ece7de'],'atelier'], ['pearl','Жемчуг','light',['#f6f3ed','#9a7738','#16151a'],'atelier'],
+  ['onyx','Оникс','dark',['#0d0d0f','#c9a96e','#ece7de']], ['pearl','Жемчуг','light',['#f6f3ed','#9a7738','#16151a']],
   ['night','Ночь','dark',['#15130f','#e8b923','#ff6a48']], ['graphite','Графит','dark',['#111214','#b8f34a','#ff4f8b']],
   ['msu','МГУ','dark',['#0a0e27','#e3bd55','#2a3aa8']], ['winter','Зима','dark',['#0b1220','#6ea8ff','#ff6b9a']],
   ['autumn','Осень','dark',['#17100b','#ea7a36','#ff5e3a']], ['paper','Бумага','light',['#f3efe6','#f5c518','#ff5a36']],
@@ -18,9 +18,8 @@ export function applyTheme(choice:string){
   const theme=THEMES.find(t=>t[0]===name)||THEMES.find(t=>t[0]==='paper')!;
   document.documentElement.dataset.theme=theme[0];
   document.documentElement.dataset.scheme=theme[2];
-  // Themes with their own layout (not only colours) name it here; CSS keys off data-style.
-  const style=(theme as readonly unknown[])[4];
-  if(typeof style==='string')document.documentElement.dataset.style=style; else delete document.documentElement.dataset.style;
+  // Every theme uses the editorial layout; themes differ in colour only.
+  document.documentElement.dataset.style='atelier';
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content',theme[3][0]);
 }
 export function ThemeButton() {

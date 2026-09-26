@@ -52,7 +52,12 @@
   --card-foreground:var(--foreground); --popover:var(--card); --popover-foreground:var(--foreground);
   --primary:var(--foreground); --primary-foreground:var(--background); --accent:var(--muted); --accent-foreground:var(--foreground);
   --input:var(--border); --ring:var(--muted-foreground); --radius:1rem; --brand:var(--foreground); --warn:var(--warn-fg);
+  /* Hairlines of the editorial layout, and the accent as a text colour (dark enough to read on light themes). */
+  --hair:color-mix(in srgb,var(--foreground) 10%,transparent); --hair-strong:color-mix(in srgb,var(--foreground) 18%,transparent); --accent-ink:var(--lecture);
 }
+[data-theme=paper] { --accent-ink:#9a7400; }
+[data-theme=spring] { --accent-ink:#3d7f2d; }
+[data-theme=summer] { --accent-ink:#ad6200; }
 :root:not([data-theme=msu]) { --mark-bg:var(--lecture); --mark-fg:var(--lecture-ink); }
 @theme inline {
   --color-background:var(--background); --color-foreground:var(--foreground); --color-card:var(--card);
@@ -346,18 +351,10 @@ textarea { font:inherit; }
   mask-image:linear-gradient(#000 0%, #000c 40%, transparent 100%); -webkit-mask-image:linear-gradient(#000 0%, #000c 40%, transparent 100%); opacity:.75; }
 [data-theme=msu] .msu-emblem { display:block; position:fixed; left:50%; top:58%; translate:-50% -50%; width:min(86vw,460px); aspect-ratio:1; background:var(--lecture); opacity:.11; pointer-events:none; z-index:0;
   mask-size:contain; -webkit-mask-size:contain; mask-repeat:no-repeat; -webkit-mask-repeat:no-repeat; mask-position:center; -webkit-mask-position:center; }
-/* Glass surfaces so the photo and the emblem show through. */
-[data-theme=msu] .tabs { background:#0a0f2e59; backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); }
-[data-theme=msu] .tabs button { color:#e6e9ffcc; text-shadow:0 1px 6px #000c; }
-[data-theme=msu] .tabs button[aria-pressed=true] { background:#ffffff26; color:#fff; box-shadow:inset 0 0 0 1px #ffffff33; }
-[data-theme=msu] .vmk-link { background:#0a0f2e80; box-shadow:inset 0 0 0 1px #ffffff26; }
-[data-theme=msu] .lesson:not(.lecture):not(.sport):not(.consultation) { background:color-mix(in srgb, var(--card) 74%, transparent); backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px); }
-[data-theme=msu] .lesson.lecture { background:color-mix(in srgb, var(--lecture-soft) 82%, transparent); }
-[data-theme=msu] .lesson.sport, [data-theme=msu] .lesson.consultation { opacity:.97; }
-[data-theme=msu] .view-switch, [data-theme=msu] .footer-links button { backdrop-filter:blur(2px); }
-[data-theme=msu] .footer-links button, [data-theme=msu] .footer-links a { background:color-mix(in srgb, var(--card) 70%, transparent); }
-[data-theme=msu] .day-button[aria-pressed=true] { background:var(--lecture); color:var(--lecture-ink); }
-[data-theme=msu] .day-button[aria-pressed=true] strong { color:var(--lecture-ink); }
+/* Text over the photo keeps a soft shadow so it stays readable. */
+[data-theme=msu] .tabs button, [data-theme=msu] .heading h1, [data-theme=msu] .eyebrow, [data-theme=msu] .view-switch button, [data-theme=msu] .vmk-link { text-shadow:0 1px 8px #000c; }
+[data-theme=msu] .tabs button { color:#e6e9ffcc; }
+[data-theme=msu] .tabs button[aria-pressed=true] { color:#fff; }
 .shell { position:relative; }
 .shell > :not(.msu-hero):not(.msu-emblem) { position:relative; z-index:1; }
 [data-theme=msu] .topbar .brand small, [data-theme=msu] .topbar .brand strong { text-shadow:0 1px 8px #000a; }
@@ -392,33 +389,29 @@ h1 { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .eyebrow .status { min-width:0; overflow:hidden; }
 [data-slot=dialog-close]:focus-visible, [data-slot=dialog-content] button:focus-visible { outline:2px solid var(--muted-foreground); outline-offset:2px; }
 [data-slot=dialog-close] { opacity:.7; }
-[data-theme=msu] .heading .view-switch { background:#0a0f2e59; box-shadow:inset 0 0 0 1px #ffffff1f; backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); }
-[data-theme=msu] .heading .view-switch button { color:#e6e9ffcc; }
-[data-theme=msu] .heading .view-switch button[aria-pressed=true] { background:#ffffff2e; color:#fff; }
-[data-theme=msu] .map-search, [data-theme=msu] .floor-switch button, [data-theme=msu] .map-modes { background:color-mix(in srgb, var(--card) 78%, transparent); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); }
 
 .map-model-status { position:absolute; inset:50% 24px auto; transform:translateY(-50%); z-index:3; margin:auto; width:fit-content; max-width:calc(100% - 48px); padding:12px 16px; border:1px solid var(--border); border-radius:12px; background:var(--card); color:var(--muted-foreground); font-size:12px; text-align:center; box-shadow:var(--shadow); }
 .map-model-status[hidden] { display:none; }
 
-/* Оникс / Жемчуг: an editorial layout of its own, not just colours.
+/* Editorial layout shared by every theme (applyTheme sets data-style=atelier); themes differ in colour only.
    No pills or cards: a timetable set like a printed calendar, hairline rules, a serif for dates,
    rectangular controls and one restrained gold accent. Everything below applies only with data-style=atelier. */
 [data-theme=onyx] {
   --background:#0d0d0f; --foreground:#ece7de; --card:#151517; --muted:#1c1c1f; --muted-foreground:#8e897f; --border:#26262a;
   --lecture:#c9a96e; --lecture-ink:#141210; --lecture-soft:#1b1914; --now:#e6c27e; --now-soft:#2a2417; --sport:#141a17; --consult:#17151d;
   --ok:#8fbf9a; --warn-bg:#211c12; --warn-fg:#d8b979; --danger:#e08a78; --shadow:0 1px 0 #ffffff06, 0 18px 40px -24px #000;
-  --hair:#ece7de17; --hair-strong:#ece7de2b;
+  --hair:#ece7de17; --hair-strong:#ece7de2b; --accent-ink:#c9a96e;
 }
 [data-theme=pearl] {
   --background:#f6f3ed; --foreground:#16151a; --card:#fffdf9; --muted:#ece7dd; --muted-foreground:#77726a; --border:#e2dcd0;
   --lecture:#9a7738; --lecture-ink:#fffdf9; --lecture-soft:#f1eadb; --now:#a87a2c; --now-soft:#f3e9d6; --sport:#eef1ec; --consult:#f0edf3;
   --ok:#4f8a5f; --warn-bg:#f5ecd9; --warn-fg:#7a5a1c; --danger:#b4452e; --shadow:0 1px 0 #0000000a, 0 18px 40px -26px #3a2e1a66;
-  --hair:#16151a17; --hair-strong:#16151a2e;
+  --hair:#16151a17; --hair-strong:#16151a2e; --accent-ink:#9a7738;
 }
-:root[data-style=atelier] { --radius:.625rem; --mark-bg:transparent; --mark-fg:var(--lecture);
+:root[data-style=atelier] { --radius:.625rem; --mark-bg:transparent; --mark-fg:var(--accent-ink);
   --serif:"Cormorant Garamond Variable","Cormorant Garamond",Georgia,serif; }
 [data-style=atelier] body { letter-spacing:-.003em;
-  background:radial-gradient(1100px 480px at 50% -220px,color-mix(in srgb,var(--lecture) 10%,transparent),transparent 72%) fixed,var(--background); }
+  background:radial-gradient(1100px 480px at 50% -220px,color-mix(in srgb,var(--accent-ink) 10%,transparent),transparent 72%) fixed,var(--background); }
 [data-style=atelier] .shell { max-width:680px; padding-left:20px; padding-right:20px; }
 
 /* Header */
@@ -434,7 +427,7 @@ h1 { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 [data-style=atelier] .tabs { gap:0; padding:0; margin:4px 0 0; border-radius:0; background:none; border-bottom:1px solid var(--hair); }
 [data-style=atelier] .tabs button { position:relative; padding:12px 0 13px; border-radius:0; color:var(--muted-foreground); font-size:11.5px; font-weight:600; letter-spacing:.16em; text-transform:uppercase; transition:color .2s; }
 [data-style=atelier] .tabs button[aria-pressed=true] { background:none; box-shadow:none; color:var(--foreground); }
-[data-style=atelier] .tabs button[aria-pressed=true]::after { content:''; position:absolute; left:calc(50% - 22px); width:44px; bottom:-1px; height:2px; background:var(--lecture); }
+[data-style=atelier] .tabs button[aria-pressed=true]::after { content:''; position:absolute; left:calc(50% - 22px); width:44px; bottom:-1px; height:2px; background:var(--accent-ink); }
 
 /* Date heading: the date large in serif, count and switch on the line below */
 [data-style=atelier] .heading { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:8px 14px; padding:26px 0 4px; }
@@ -443,7 +436,7 @@ h1 { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 [data-style=atelier] .eyebrow { font-size:12px; }
 [data-style=atelier] .view-switch { gap:18px; padding:0; border-radius:0; background:none; }
 [data-style=atelier] .view-switch button { padding:5px 0; border-radius:0; background:none; color:var(--muted-foreground); font-size:11px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; transition:color .2s; }
-[data-style=atelier] .view-switch button[aria-pressed=true] { background:none; color:var(--foreground); box-shadow:inset 0 -1px 0 var(--lecture); }
+[data-style=atelier] .view-switch button[aria-pressed=true] { background:none; color:var(--foreground); box-shadow:inset 0 -1px 0 var(--accent-ink); }
 
 /* Week strip: letters in small caps, numbers in serif; the chosen day in gold */
 [data-style=atelier] .date-navigation { margin:14px 0 4px; padding:8px 0; border-top:1px solid var(--hair); border-bottom:1px solid var(--hair); }
@@ -452,9 +445,9 @@ h1 { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 [data-style=atelier] .day-button span { font-size:9.5px; font-weight:600; letter-spacing:.16em; text-transform:uppercase; }
 [data-style=atelier] .day-button strong { font-family:var(--serif); font-size:25px; font-weight:500; line-height:1; font-variant-numeric:lining-nums; }
 [data-style=atelier] .day-button[aria-pressed=true] { background:none; color:var(--foreground); }
-[data-style=atelier] .day-button[aria-pressed=true] strong { color:var(--lecture); font-weight:600; }
-[data-style=atelier] .day-button[aria-pressed=true]::before { content:''; position:absolute; bottom:0; left:calc(50% - 10px); width:20px; height:1.5px; background:var(--lecture); }
-[data-style=atelier] .day-button.today::after { top:4px; bottom:auto; right:calc(50% - 17px); width:4px; height:4px; background:var(--lecture); }
+[data-style=atelier] .day-button[aria-pressed=true] strong { color:var(--accent-ink); font-weight:600; }
+[data-style=atelier] .day-button[aria-pressed=true]::before { content:''; position:absolute; bottom:0; left:calc(50% - 10px); width:20px; height:1.5px; background:var(--accent-ink); }
+[data-style=atelier] .day-button.today::after { top:4px; bottom:auto; right:calc(50% - 17px); width:4px; height:4px; background:var(--accent-ink); }
 
 /* Now / next: the minutes set large in serif */
 [data-style=atelier] .glance-line { gap:10px; margin:0; padding:14px 0; border-bottom:1px solid var(--hair); font-size:13px; }
@@ -473,7 +466,7 @@ h1 { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 [data-style=atelier] .range span { margin-top:5px; font-size:12px; font-weight:500; letter-spacing:0; }
 [data-style=atelier] .range i { display:none; }
 [data-style=atelier] .tag { grid-column:2; grid-row:1; justify-self:start; align-self:center; padding:0; border-radius:0; background:none; color:var(--muted-foreground); font-size:9.5px; font-weight:650; letter-spacing:.18em; }
-[data-style=atelier] .lesson.lecture .tag { background:none; color:var(--lecture); }
+[data-style=atelier] .lesson.lecture .tag { background:none; color:var(--accent-ink); }
 [data-style=atelier] .lesson .homework-button { grid-column:3; grid-row:1; align-self:start; justify-self:end; height:24px; border:1px solid var(--hair-strong); border-radius:6px; }
 [data-style=atelier] .lesson .homework-button.has-task { border-color:var(--now); }
 [data-style=atelier] .live { grid-column:1; grid-row:3; justify-self:start; align-self:start; margin-top:7px; padding:0; border-radius:0; background:none; color:var(--now); font-size:11px; font-weight:600; line-height:1.25; }
@@ -485,7 +478,7 @@ h1 { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 [data-style=atelier] .list .teacher-row { margin-top:6px; font-size:13.5px; }
 [data-style=atelier] .list.roomy .teacher-row { margin-top:9px; font-size:15px; }
 [data-style=atelier] .lesson.lecture, [data-style=atelier] .lesson.sport, [data-style=atelier] .lesson.consultation { background:none; box-shadow:none; }
-[data-style=atelier] .lesson.lecture .range { color:var(--lecture); }
+[data-style=atelier] .lesson.lecture .range { color:var(--accent-ink); }
 [data-style=atelier] .list .lesson.current, [data-style=atelier] .list .lesson.lecture.current { margin:0 -12px; padding-left:12px; padding-right:12px; box-shadow:none;
   background:linear-gradient(90deg,color-mix(in srgb,var(--now) 9%,transparent),transparent 75%); }
 [data-style=atelier] .lesson.current::before { content:''; position:absolute; left:0; top:16px; bottom:16px; width:2px; background:var(--now); }
@@ -495,14 +488,14 @@ h1 { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 /* A room is a place, not a badge: a small gold pin and the number. */
 [data-style=atelier] .list .room { gap:6px; align-items:center; padding:0; border:0; border-radius:0; color:var(--foreground); font-size:14px; font-weight:600; }
 [data-style=atelier] .list.roomy .room { font-size:16px; }
-[data-style=atelier] .room::before { content:''; flex-shrink:0; width:9px; height:12px; background:var(--lecture);
+[data-style=atelier] .room::before { content:''; flex-shrink:0; width:9px; height:12px; background:var(--accent-ink);
   mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 16'%3E%3Cpath d='M6 0a6 6 0 0 0-6 6c0 4.5 6 10 6 10s6-5.5 6-10a6 6 0 0 0-6-6zm0 8.4A2.4 2.4 0 1 1 6 3.6a2.4 2.4 0 0 1 0 4.8z'/%3E%3C/svg%3E") center/contain no-repeat;
   -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 16'%3E%3Cpath d='M6 0a6 6 0 0 0-6 6c0 4.5 6 10 6 10s6-5.5 6-10a6 6 0 0 0-6-6zm0 8.4A2.4 2.4 0 1 1 6 3.6a2.4 2.4 0 0 1 0 4.8z'/%3E%3C/svg%3E") center/contain no-repeat; }
-[data-style=atelier] button.room:hover { background:none; text-decoration:underline; text-underline-offset:4px; text-decoration-color:var(--lecture); }
+[data-style=atelier] button.room:hover { background:none; text-decoration:underline; text-underline-offset:4px; text-decoration-color:var(--accent-ink); }
 [data-style=atelier] .changed-note { margin-top:10px; padding:0 0 0 10px; border-radius:0; background:none; border-left:2px solid var(--warn-fg); }
 [data-style=atelier] .hw-preview { margin-top:10px; border-radius:6px; background:var(--muted); }
 [data-style=atelier] .homework-editor textarea { border:1px solid var(--hair-strong); border-radius:8px; }
-[data-style=atelier] .homework-editor textarea:focus { border-color:var(--lecture); }
+[data-style=atelier] .homework-editor textarea:focus { border-color:var(--accent-ink); }
 
 /* Week view and empty days */
 [data-style=atelier] .week-day { margin-bottom:10px; }
@@ -511,7 +504,7 @@ h1 { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 [data-style=atelier] .day-title h2 span { font-family:var(--font-sans); font-size:13px; }
 [data-style=atelier] .day-title>span { font-size:11px; letter-spacing:.12em; text-transform:uppercase; }
 [data-style=atelier] .empty { padding:64px 20px; border:0; border-radius:0; }
-[data-style=atelier] .empty svg { color:var(--lecture); opacity:.8; }
+[data-style=atelier] .empty svg { color:var(--accent-ink); opacity:.8; }
 [data-style=atelier] .empty p { font-family:var(--serif); font-size:28px; font-style:italic; font-weight:500; }
 
 /* Notices, footer, buttons, dialogs */
@@ -521,7 +514,7 @@ h1 { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 [data-style=atelier] .footer-links button, [data-style=atelier] .footer-links a { padding:6px 0; border-radius:0; background:none; box-shadow:none; color:var(--muted-foreground); font-size:11px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; transition:color .2s; }
 [data-style=atelier] .footer-links button:hover, [data-style=atelier] .footer-links a:hover { color:var(--foreground); }
 [data-style=atelier] .small-primary, [data-style=atelier] .save-task, [data-style=atelier] .pdf-close { border-radius:8px; letter-spacing:.02em; }
-[data-style=atelier] .text-button { text-decoration-color:var(--lecture); }
+[data-style=atelier] .text-button { text-decoration-color:var(--accent-ink); }
 [data-style=atelier] [data-slot=dialog-title] { font-family:var(--serif); font-size:28px; font-weight:600; letter-spacing:0; }
 [data-style=atelier] .status-list>div, [data-style=atelier] .change-item, [data-style=atelier] .history-entry, [data-style=atelier] .stream, [data-style=atelier] .task-list-row { border-color:var(--hair); }
 [data-style=atelier] .group-grid button { border-radius:6px; background:transparent; box-shadow:inset 0 0 0 1px var(--hair-strong); }
@@ -533,7 +526,7 @@ h1 { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
 /* Map */
 [data-style=atelier] .map-search { height:50px; border-color:var(--hair-strong); border-radius:10px; box-shadow:none; }
-[data-style=atelier] .map-search:focus-within { border-color:var(--lecture); box-shadow:none; }
+[data-style=atelier] .map-search:focus-within { border-color:var(--accent-ink); box-shadow:none; }
 [data-style=atelier] .map-results, [data-style=atelier] .route-box, [data-style=atelier] .map-model-status { border-color:var(--hair-strong); border-radius:10px; }
 [data-style=atelier] .floor-switch button { border-color:var(--hair-strong); border-radius:8px; background:transparent; font-variant-numeric:tabular-nums; }
 [data-style=atelier] .floor-switch button[aria-pressed=true] { background:var(--foreground); border-color:var(--foreground); color:var(--background); }

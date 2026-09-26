@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @import "../vendor/shadcn-tailwind-4.13.0.css";
 @import "@fontsource-variable/onest";
+@import "@fontsource-variable/cormorant-garamond";
 
 /* Themes: every palette defines the same tokens. "paper" is the default. */
 :root, [data-theme=paper] {
@@ -144,6 +145,7 @@ h1 { font-size:21px; line-height:1.15; letter-spacing:-.5px; font-weight:800; ma
 .lesson-time { display:flex; align-items:center; gap:6px; min-height:22px; line-height:1.2; }
 .range { font-size:13.5px; font-weight:750; letter-spacing:-.2px; font-variant-numeric:tabular-nums; }
 .range span { color:var(--muted-foreground); font-weight:500; }
+.range i { font-style:normal; }
 .tag { padding:2px 8px; border-radius:999px; font-size:10.5px; font-weight:750; letter-spacing:.06em; text-transform:uppercase; background:var(--muted); color:var(--foreground); }
 .live { padding:2px 8px; border-radius:999px; font-size:11.5px; font-weight:700; background:var(--now-soft); color:var(--now); }
 .lesson-time .homework-button { margin-left:auto; }
@@ -397,3 +399,157 @@ h1 { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
 .map-model-status { position:absolute; inset:50% 24px auto; transform:translateY(-50%); z-index:3; margin:auto; width:fit-content; max-width:calc(100% - 48px); padding:12px 16px; border:1px solid var(--border); border-radius:12px; background:var(--card); color:var(--muted-foreground); font-size:12px; text-align:center; box-shadow:var(--shadow); }
 .map-model-status[hidden] { display:none; }
+
+/* Оникс / Жемчуг: an editorial layout of its own, not just colours.
+   No pills or cards: a timetable set like a printed calendar, hairline rules, a serif for dates,
+   rectangular controls and one restrained gold accent. Everything below applies only with data-style=atelier. */
+[data-theme=onyx] {
+  --background:#0d0d0f; --foreground:#ece7de; --card:#151517; --muted:#1c1c1f; --muted-foreground:#8e897f; --border:#26262a;
+  --lecture:#c9a96e; --lecture-ink:#141210; --lecture-soft:#1b1914; --now:#e6c27e; --now-soft:#2a2417; --sport:#141a17; --consult:#17151d;
+  --ok:#8fbf9a; --warn-bg:#211c12; --warn-fg:#d8b979; --danger:#e08a78; --shadow:0 1px 0 #ffffff06, 0 18px 40px -24px #000;
+  --hair:#ece7de17; --hair-strong:#ece7de2b;
+}
+[data-theme=pearl] {
+  --background:#f6f3ed; --foreground:#16151a; --card:#fffdf9; --muted:#ece7dd; --muted-foreground:#77726a; --border:#e2dcd0;
+  --lecture:#9a7738; --lecture-ink:#fffdf9; --lecture-soft:#f1eadb; --now:#a87a2c; --now-soft:#f3e9d6; --sport:#eef1ec; --consult:#f0edf3;
+  --ok:#4f8a5f; --warn-bg:#f5ecd9; --warn-fg:#7a5a1c; --danger:#b4452e; --shadow:0 1px 0 #0000000a, 0 18px 40px -26px #3a2e1a66;
+  --hair:#16151a17; --hair-strong:#16151a2e;
+}
+:root[data-style=atelier] { --radius:.625rem; --mark-bg:transparent; --mark-fg:var(--lecture);
+  --serif:"Cormorant Garamond Variable","Cormorant Garamond",Georgia,serif; }
+[data-style=atelier] body { letter-spacing:-.003em;
+  background:radial-gradient(1100px 480px at 50% -220px,color-mix(in srgb,var(--lecture) 10%,transparent),transparent 72%) fixed,var(--background); }
+[data-style=atelier] .shell { max-width:680px; padding-left:20px; padding-right:20px; }
+
+/* Header */
+[data-style=atelier] .topbar { padding:18px 0 12px; }
+[data-style=atelier] .brandmark { width:36px; height:36px; background:transparent; box-shadow:inset 0 0 0 1px var(--hair-strong); }
+[data-style=atelier] .brand strong { font-family:var(--serif); font-size:22px; font-weight:600; letter-spacing:0; }
+[data-style=atelier] .brand small { margin-top:2px; font-size:10px; letter-spacing:.16em; text-transform:uppercase; }
+[data-style=atelier] .vmk-link { height:auto; padding:6px 4px; background:none; box-shadow:none; color:var(--muted-foreground); font-size:11px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; transition:color .2s; }
+[data-style=atelier] .vmk-link:hover { color:var(--foreground); }
+[data-style=atelier] .icon-button { border-radius:8px; }
+
+/* Sections: two words on a hairline, the open one underlined in gold */
+[data-style=atelier] .tabs { gap:0; padding:0; margin:4px 0 0; border-radius:0; background:none; border-bottom:1px solid var(--hair); }
+[data-style=atelier] .tabs button { position:relative; padding:12px 0 13px; border-radius:0; color:var(--muted-foreground); font-size:11.5px; font-weight:600; letter-spacing:.16em; text-transform:uppercase; transition:color .2s; }
+[data-style=atelier] .tabs button[aria-pressed=true] { background:none; box-shadow:none; color:var(--foreground); }
+[data-style=atelier] .tabs button[aria-pressed=true]::after { content:''; position:absolute; left:calc(50% - 22px); width:44px; bottom:-1px; height:2px; background:var(--lecture); }
+
+/* Date heading: the date large in serif, count and switch on the line below */
+[data-style=atelier] .heading { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:8px 14px; padding:26px 0 4px; }
+[data-style=atelier] .heading-text { display:contents; }
+[data-style=atelier] .heading h1 { grid-column:1/-1; font-family:var(--serif); font-size:clamp(30px,8.6vw,40px); font-weight:500; line-height:1; letter-spacing:-.01em; }
+[data-style=atelier] .eyebrow { font-size:12px; }
+[data-style=atelier] .view-switch { gap:18px; padding:0; border-radius:0; background:none; }
+[data-style=atelier] .view-switch button { padding:5px 0; border-radius:0; background:none; color:var(--muted-foreground); font-size:11px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; transition:color .2s; }
+[data-style=atelier] .view-switch button[aria-pressed=true] { background:none; color:var(--foreground); box-shadow:inset 0 -1px 0 var(--lecture); }
+
+/* Week strip: letters in small caps, numbers in serif; the chosen day in gold */
+[data-style=atelier] .date-navigation { margin:14px 0 4px; padding:8px 0; border-top:1px solid var(--hair); border-bottom:1px solid var(--hair); }
+[data-style=atelier] .date-navigation>.icon-button { color:var(--muted-foreground); }
+[data-style=atelier] .day-button { gap:3px; padding:4px 0 9px; border-radius:0; transition:color .2s; }
+[data-style=atelier] .day-button span { font-size:9.5px; font-weight:600; letter-spacing:.16em; text-transform:uppercase; }
+[data-style=atelier] .day-button strong { font-family:var(--serif); font-size:25px; font-weight:500; line-height:1; font-variant-numeric:lining-nums; }
+[data-style=atelier] .day-button[aria-pressed=true] { background:none; color:var(--foreground); }
+[data-style=atelier] .day-button[aria-pressed=true] strong { color:var(--lecture); font-weight:600; }
+[data-style=atelier] .day-button[aria-pressed=true]::before { content:''; position:absolute; bottom:0; left:calc(50% - 10px); width:20px; height:1.5px; background:var(--lecture); }
+[data-style=atelier] .day-button.today::after { top:4px; bottom:auto; right:calc(50% - 17px); width:4px; height:4px; background:var(--lecture); }
+
+/* Now / next: the minutes set large in serif */
+[data-style=atelier] .glance-line { gap:10px; margin:0; padding:14px 0; border-bottom:1px solid var(--hair); font-size:13px; }
+[data-style=atelier] .glance-line b { padding:0; border-radius:0; background:none; color:var(--now); font-family:var(--serif); font-size:28px; font-weight:600; line-height:.9; font-variant-numeric:lining-nums tabular-nums; }
+[data-style=atelier] .glance-line strong { font-weight:500; }
+
+/* Lessons: rows of a timetable. Time on the left, subject and people on the right, hairlines between. */
+[data-style=atelier] .list, [data-style=atelier] .list.comfy, [data-style=atelier] .list.roomy { gap:0; }
+[data-style=atelier] .list .lesson { display:grid; grid-template-columns:64px minmax(0,1fr) auto; align-content:center; column-gap:16px;
+  max-height:none; padding:18px 0; overflow:visible; border-radius:0; background:none; box-shadow:none; border-bottom:1px solid var(--hair); }
+[data-style=atelier] .list.fill.compact .lesson { max-height:none; }
+[data-style=atelier] .list.roomy .lesson { padding:28px 0; }
+[data-style=atelier] .lesson-time { display:contents; }
+[data-style=atelier] .list .range { grid-column:1; grid-row:1/span 2; align-self:start; display:flex; flex-direction:column; padding-top:1px; font-size:17px; font-weight:600; letter-spacing:-.01em; line-height:1.1; }
+[data-style=atelier] .list.roomy .range { font-size:20px; }
+[data-style=atelier] .range span { margin-top:5px; font-size:12px; font-weight:500; letter-spacing:0; }
+[data-style=atelier] .range i { display:none; }
+[data-style=atelier] .tag { grid-column:2; grid-row:1; justify-self:start; align-self:center; padding:0; border-radius:0; background:none; color:var(--muted-foreground); font-size:9.5px; font-weight:650; letter-spacing:.18em; }
+[data-style=atelier] .lesson.lecture .tag { background:none; color:var(--lecture); }
+[data-style=atelier] .lesson .homework-button { grid-column:3; grid-row:1; align-self:start; justify-self:end; height:24px; border:1px solid var(--hair-strong); border-radius:6px; }
+[data-style=atelier] .lesson .homework-button.has-task { border-color:var(--now); }
+[data-style=atelier] .live { grid-column:1; grid-row:3; justify-self:start; align-self:start; margin-top:7px; padding:0; border-radius:0; background:none; color:var(--now); font-size:11px; font-weight:600; line-height:1.25; }
+[data-style=atelier] .list .lesson h3 { grid-column:2; grid-row:2; margin:5px 0 0; font-size:18px; font-weight:600; line-height:1.2; letter-spacing:-.015em; }
+[data-style=atelier] .list.comfy .lesson h3 { font-size:20px; }
+[data-style=atelier] .list.roomy .lesson h3 { font-size:24px; margin-top:7px; }
+[data-style=atelier] .list .lesson:not(:has(.tag)) h3 { grid-row:1; margin-top:0; }
+[data-style=atelier] .lesson>:not(.lesson-time):not(h3):not(.progress) { grid-column:2/-1; }
+[data-style=atelier] .list .teacher-row { margin-top:6px; font-size:13.5px; }
+[data-style=atelier] .list.roomy .teacher-row { margin-top:9px; font-size:15px; }
+[data-style=atelier] .lesson.lecture, [data-style=atelier] .lesson.sport, [data-style=atelier] .lesson.consultation { background:none; box-shadow:none; }
+[data-style=atelier] .lesson.lecture .range { color:var(--lecture); }
+[data-style=atelier] .list .lesson.current, [data-style=atelier] .list .lesson.lecture.current { margin:0 -12px; padding-left:12px; padding-right:12px; box-shadow:none;
+  background:linear-gradient(90deg,color-mix(in srgb,var(--now) 9%,transparent),transparent 75%); }
+[data-style=atelier] .lesson.current::before { content:''; position:absolute; left:0; top:16px; bottom:16px; width:2px; background:var(--now); }
+[data-style=atelier] .lesson.past { opacity:.42; }
+[data-style=atelier] .progress { height:1px; background:var(--hair); }
+[data-style=atelier] .progress i { border-radius:0; background:var(--now); }
+/* A room is a place, not a badge: a small gold pin and the number. */
+[data-style=atelier] .list .room { gap:6px; align-items:center; padding:0; border:0; border-radius:0; color:var(--foreground); font-size:14px; font-weight:600; }
+[data-style=atelier] .list.roomy .room { font-size:16px; }
+[data-style=atelier] .room::before { content:''; flex-shrink:0; width:9px; height:12px; background:var(--lecture);
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 16'%3E%3Cpath d='M6 0a6 6 0 0 0-6 6c0 4.5 6 10 6 10s6-5.5 6-10a6 6 0 0 0-6-6zm0 8.4A2.4 2.4 0 1 1 6 3.6a2.4 2.4 0 0 1 0 4.8z'/%3E%3C/svg%3E") center/contain no-repeat;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 16'%3E%3Cpath d='M6 0a6 6 0 0 0-6 6c0 4.5 6 10 6 10s6-5.5 6-10a6 6 0 0 0-6-6zm0 8.4A2.4 2.4 0 1 1 6 3.6a2.4 2.4 0 0 1 0 4.8z'/%3E%3C/svg%3E") center/contain no-repeat; }
+[data-style=atelier] button.room:hover { background:none; text-decoration:underline; text-underline-offset:4px; text-decoration-color:var(--lecture); }
+[data-style=atelier] .changed-note { margin-top:10px; padding:0 0 0 10px; border-radius:0; background:none; border-left:2px solid var(--warn-fg); }
+[data-style=atelier] .hw-preview { margin-top:10px; border-radius:6px; background:var(--muted); }
+[data-style=atelier] .homework-editor textarea { border:1px solid var(--hair-strong); border-radius:8px; }
+[data-style=atelier] .homework-editor textarea:focus { border-color:var(--lecture); }
+
+/* Week view and empty days */
+[data-style=atelier] .week-day { margin-bottom:10px; }
+[data-style=atelier] .day-title { margin:26px 0 0; padding-bottom:10px; border-bottom:1px solid var(--hair-strong); }
+[data-style=atelier] .day-title h2 { font-family:var(--serif); font-size:24px; font-weight:600; letter-spacing:0; }
+[data-style=atelier] .day-title h2 span { font-family:var(--font-sans); font-size:13px; }
+[data-style=atelier] .day-title>span { font-size:11px; letter-spacing:.12em; text-transform:uppercase; }
+[data-style=atelier] .empty { padding:64px 20px; border:0; border-radius:0; }
+[data-style=atelier] .empty svg { color:var(--lecture); opacity:.8; }
+[data-style=atelier] .empty p { font-family:var(--serif); font-size:28px; font-style:italic; font-weight:500; }
+
+/* Notices, footer, buttons, dialogs */
+[data-style=atelier] .message { margin:12px 0; border-radius:4px; background:transparent; border:1px solid var(--hair-strong); border-left:2px solid var(--warn-fg); color:var(--foreground); }
+[data-style=atelier] .footer { margin-top:10px; padding-top:16px; }
+[data-style=atelier] .footer-links { gap:22px; }
+[data-style=atelier] .footer-links button, [data-style=atelier] .footer-links a { padding:6px 0; border-radius:0; background:none; box-shadow:none; color:var(--muted-foreground); font-size:11px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; transition:color .2s; }
+[data-style=atelier] .footer-links button:hover, [data-style=atelier] .footer-links a:hover { color:var(--foreground); }
+[data-style=atelier] .small-primary, [data-style=atelier] .save-task, [data-style=atelier] .pdf-close { border-radius:8px; letter-spacing:.02em; }
+[data-style=atelier] .text-button { text-decoration-color:var(--lecture); }
+[data-style=atelier] [data-slot=dialog-title] { font-family:var(--serif); font-size:28px; font-weight:600; letter-spacing:0; }
+[data-style=atelier] .status-list>div, [data-style=atelier] .change-item, [data-style=atelier] .history-entry, [data-style=atelier] .stream, [data-style=atelier] .task-list-row { border-color:var(--hair); }
+[data-style=atelier] .group-grid button { border-radius:6px; background:transparent; box-shadow:inset 0 0 0 1px var(--hair-strong); }
+[data-style=atelier] .group-grid button[aria-pressed=true] { background:var(--lecture); color:var(--lecture-ink); box-shadow:none; }
+[data-style=atelier] .theme-grid button { border-radius:10px; }
+[data-style=atelier] .swatch { border-radius:6px; }
+[data-style=atelier] .task-check, [data-style=atelier] .subgroup-field select { border-radius:6px; }
+[data-style=atelier] .pdf-actions button, [data-style=atelier] .pdf-actions a { border-radius:8px; }
+
+/* Map */
+[data-style=atelier] .map-search { height:50px; border-color:var(--hair-strong); border-radius:10px; box-shadow:none; }
+[data-style=atelier] .map-search:focus-within { border-color:var(--lecture); box-shadow:none; }
+[data-style=atelier] .map-results, [data-style=atelier] .route-box, [data-style=atelier] .map-model-status { border-color:var(--hair-strong); border-radius:10px; }
+[data-style=atelier] .floor-switch button { border-color:var(--hair-strong); border-radius:8px; background:transparent; font-variant-numeric:tabular-nums; }
+[data-style=atelier] .floor-switch button[aria-pressed=true] { background:var(--foreground); border-color:var(--foreground); color:var(--background); }
+[data-style=atelier] .scene-view { border-color:var(--hair-strong); border-radius:14px; }
+[data-style=atelier] .map-orientation, [data-style=atelier] .map-zoom { border-color:var(--hair-strong); border-radius:10px; box-shadow:none;
+  background:color-mix(in srgb,var(--card) 86%,transparent); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
+[data-style=atelier] .map-orientation strong { font-family:var(--serif); font-size:17px; font-weight:600; }
+[data-style=atelier] .map-orientation span { font-size:10px; letter-spacing:.1em; text-transform:uppercase; }
+[data-style=atelier] .scene-hint { border-radius:6px; box-shadow:none; background:color-mix(in srgb,var(--card) 86%,transparent); letter-spacing:.02em; }
+[data-style=atelier] .map-card { border-color:var(--hair-strong); border-radius:12px; }
+[data-style=atelier] .map-card strong { font-family:var(--serif); font-size:23px; font-weight:600; }
+[data-style=atelier] .map-quick button { border-color:var(--hair-strong); border-radius:8px; background:transparent; }
+[data-style=atelier] .point-chip { border-radius:6px; }
+@media (max-width:360px) {
+  [data-style=atelier] .shell { padding-left:14px; padding-right:14px; }
+  [data-style=atelier] .list .lesson { grid-template-columns:54px minmax(0,1fr) auto; column-gap:12px; }
+}
+[data-style=atelier] .brand strong { font-variant-numeric:lining-nums; }
+[data-style=atelier] .live { white-space:nowrap; }

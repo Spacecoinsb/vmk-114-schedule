@@ -110,7 +110,7 @@ function LessonCard({lesson,date,today,clock,change,next,hw,preferredTeacher,sta
   const label = now ? `идёт, ещё ${duration(left)}` : next ? `через ${duration(left)}` : '';
   return <LessonAt.Provider value={{date,start:lesson.start}}><article className={`lesson ${lesson.type} ${now?'current':''} ${past?'past':''}`}>
     <div className="lesson-time">
-      <span className="range">{lesson.start}<span> – {lesson.end}</span></span>
+      <span className="range">{lesson.start}<span><i> – </i>{lesson.end}</span></span>
       {typeNames[lesson.type] && <span className="tag">{typeNames[lesson.type]}</span>}
       {label && <span className="live">{label}</span>}
       <HomeworkButton task={hw.task} onClick={hw.open}/>

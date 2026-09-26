@@ -394,3 +394,6 @@ h1 { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 [data-theme=msu] .heading .view-switch button { color:#e6e9ffcc; }
 [data-theme=msu] .heading .view-switch button[aria-pressed=true] { background:#ffffff2e; color:#fff; }
 [data-theme=msu] .map-search, [data-theme=msu] .floor-switch button, [data-theme=msu] .map-modes { background:color-mix(in srgb, var(--card) 78%, transparent); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); }
+
+.map-model-status { position:absolute; inset:50% 24px auto; transform:translateY(-50%); z-index:3; margin:auto; width:fit-content; max-width:calc(100% - 48px); padding:12px 16px; border:1px solid var(--border); border-radius:12px; background:var(--card); color:var(--muted-foreground); font-size:12px; text-align:center; box-shadow:var(--shadow); }
+.map-model-status[hidden] { display:none; }

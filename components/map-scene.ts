@@ -1,7 +1,7 @@
-// Real 3D model of the faculty built from the room outlines in lib/map-data.json.
+// Architectural cutaway models built offline from the original floor plans.
 import * as THREE from 'three';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
-import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
 import {FLOORS} from '@/lib/map-route.mjs';
 
 type Box = number[];
@@ -34,24 +34,34 @@ export class MapScene {
   private renderer:THREE.WebGLRenderer; private scene = new THREE.Scene();
   private persp = new THREE.PerspectiveCamera(38, 1, 5, 20000); private ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, -5000, 5000);
   private camera:THREE.Camera = this.ortho; private controls:OrbitControls;
-  private floors = new Map<number, {group:THREE.Group; solid:THREE.Group; image:THREE.Mesh|null; detail:THREE.Mesh|null; pick:THREE.Mesh}>();
+  private floors = new Map<number, {group:THREE.Group; solid:THREE.Group; image:THREE.Mesh|null; loaded:boolean; loading:boolean; pick:THREE.Mesh}>();
   private dynamic = new THREE.Group(); private walker:THREE.Mesh|null = null; private walkPath:THREE.CurvePath<THREE.Vector3>|null = null;
   private mode:Mode = 'schema'; private active = 6; private frame = 0; private disposed = false; private down:{x:number; y:number}|null = null;
   private manualView = false;
   private colors = palette(); private anim:{from:THREE.Vector3; to:THREE.Vector3; t:number}|null = null;
   private labelCanvas:HTMLCanvasElement; private labelContext:CanvasRenderingContext2D; private marks:Mark[] = [];
   private observer:ResizeObserver;
+  private loader = new GLTFLoader();
+  private modelStatus:HTMLDivElement;
 
   constructor(private host:HTMLElement, private onPick:(floor:number, x:number, y:number)=>void) {
     this.renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     host.appendChild(this.renderer.domElement);
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.toneMapping=THREE.ACESFilmicToneMapping; this.renderer.toneMappingExposure=1;
+    this.renderer.shadowMap.enabled = true; this.renderer.shadowMap.autoUpdate=false; this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.modelStatus = document.createElement('div'); this.modelStatus.className='map-model-status';
+    this.modelStatus.setAttribute('role','status'); host.appendChild(this.modelStatus);
     this.labelCanvas = document.createElement('canvas'); this.labelCanvas.className = 'map-label-layer';
     this.labelContext = this.labelCanvas.getContext('2d')!; host.appendChild(this.labelCanvas);
     this.controls = new OrbitControls(this.ortho, this.renderer.domElement);
     this.controls.enableDamping = true; this.controls.screenSpacePanning = true;
-    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x8890a0, 2.2));
-    const sun = new THREE.DirectionalLight(0xffffff, 1.4); sun.position.set(-600, 1200, 800); this.scene.add(sun);
+    this.scene.add(new THREE.HemisphereLight(0xffffff, 0xc4d2d7, 1.5));
+    const sun = new THREE.DirectionalLight(0xfff6e5, 2.4); sun.position.set(-700, 1200, -500); sun.castShadow=true;
+    Object.assign(sun.shadow.camera,{left:-1200,right:1200,top:1000,bottom:-1000,near:1,far:3500});
+    sun.shadow.mapSize.set(2048,2048); sun.shadow.bias=-.0003; sun.shadow.normalBias=.6;
+    this.scene.add(sun);
     this.scene.add(this.dynamic);
     this.build();
     const el = this.renderer.domElement;
@@ -71,41 +81,13 @@ export class MapScene {
     for (const f of FLOORS as FloorData[]) {
       const group = new THREE.Group(); group.position.y = level(f.floor);
       const solid = new THREE.Group();
-      // Floor slab from the building footprint.
-      const slabs = f.footprint.map(([x0, y0, x1, y1]) => { const g = new THREE.BoxGeometry(x1-x0, 4, y1-y0); g.translate(px((x0+x1)/2), -2, pz((y0+y1)/2)); return g; });
-      solid.add(new THREE.Mesh(mergeGeometries(slabs), new THREE.MeshLambertMaterial({color:this.colors.slab})));
-      // A muted corridor trace makes the walkable shape legible even without a route.
-      const paths = new THREE.Group();
-      for (const line of f.corridors) for (let i=1; i<line.length; i++) {
-        const [ax, ay] = line[i-1], [bx, by] = line[i], length = Math.hypot(bx-ax, by-ay);
-        if (!length) continue;
-        const strip = new THREE.Mesh(new THREE.BoxGeometry(length, .8, 12), new THREE.MeshBasicMaterial({color:this.colors.edge, transparent:true, opacity:.24, depthWrite:false}));
-        strip.rotation.y = -Math.atan2(by-ay,bx-ax); strip.position.set(px((ax+bx)/2), .7, pz((ay+by)/2)); paths.add(strip);
-      }
-      solid.add(paths);
-      // Rooms as low blocks, coloured by purpose.
-      const blocks:THREE.BufferGeometry[] = [];
-      const add = (box:Box, color:number, h = ROOM_H) => {
-        // A hairline between adjacent rooms keeps their separate walls visible.
-        const [x0, y0, x1, y1] = box, w = Math.max(2, x1-x0+1), d = Math.max(2, y1-y0+1);
-        const g = new THREE.BoxGeometry(w, h, d); g.translate(px((x0+x1)/2), h/2, pz((y0+y1)/2));
-        const c = new THREE.Color(color), arr = new Float32Array(g.attributes.position.count*3);
-        for (let i = 0; i < g.attributes.position.count; i++) c.toArray(arr, i*3);
-        g.setAttribute('color', new THREE.BufferAttribute(arr, 3)); blocks.push(g);
-      };
-      for (const r of f.rooms) add(r.box, this.colors[kindOf(r.id) as 'room']);
-      for (const s of f.stairs) add(s.box, this.colors.stair, ROOM_H+6);
-      for (const p of f.places) if (p.box) add(p.box, this.colors[p.kind as 'food'] ?? this.colors.place);
-      const merged = mergeGeometries(blocks);
-      solid.add(new THREE.Mesh(merged, new THREE.MeshLambertMaterial({vertexColors:true})));
-      solid.add(new THREE.LineSegments(new THREE.EdgesGeometry(merged), new THREE.LineBasicMaterial({color:this.colors.edge, transparent:true, opacity:.8})));
       group.add(solid);
       // Invisible plane for taps.
       const [bx0, by0, bx1, by1] = bounds(f);
       const pick = new THREE.Mesh(new THREE.PlaneGeometry(bx1-bx0, by1-by0).rotateX(-Math.PI/2), new THREE.MeshBasicMaterial({visible:false}));
-      pick.position.set(px((bx0+bx1)/2), ROOM_H, pz((by0+by1)/2)); group.add(pick);
+      pick.position.set(px((bx0+bx1)/2), 1, pz((by0+by1)/2)); group.add(pick);
       this.scene.add(group);
-      this.floors.set(f.floor, {group, solid, image:null, detail:null, pick});
+      this.floors.set(f.floor, {group, solid, image:null, loaded:false, loading:false, pick});
     }
     this.apply();
   }
@@ -117,43 +99,40 @@ export class MapScene {
     const f = (FLOORS as FloorData[]).find(q => q.floor === floor)!;
     const [x0, y0, x1, y1] = f.imageBox;
     const tex = new THREE.TextureLoader().load(import.meta.env.BASE_URL + f.image); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(x1-x0, y1-y0).rotateX(-Math.PI/2), new THREE.MeshBasicMaterial({map:tex}));
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(x1-x0, y1-y0).rotateX(-Math.PI/2), new THREE.MeshBasicMaterial({map:tex,toneMapped:false}));
     mesh.position.set(px((x0+x1)/2), 0.5, pz((y0+y1)/2));
     entry.group.add(mesh); entry.image = mesh;
     return mesh;
   }
 
-  // Project the actual wall, door and fixture lines from the supplied plan onto
-  // the model. White paper becomes transparent; the ink follows the active theme.
-  private detail(floor:number) {
-    const entry = this.floors.get(floor)!;
-    if (entry.detail) return entry.detail;
-    const f = (FLOORS as FloorData[]).find(q => q.floor === floor)!;
-    const [x0,y0,x1,y1] = f.imageBox;
-    const material = new THREE.MeshBasicMaterial({transparent:true, depthWrite:false, polygonOffset:true, polygonOffsetFactor:-1});
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(x1-x0,y1-y0).rotateX(-Math.PI/2),material);
-    mesh.position.set(px((x0+x1)/2),ROOM_H+1.2,pz((y0+y1)/2)); mesh.renderOrder = 2;
-    entry.group.add(mesh); entry.detail = mesh;
-    const source = new Image(); source.src = import.meta.env.BASE_URL + f.image;
-    source.onload = () => {
-      if (this.disposed || this.floors.get(floor)!==entry || entry.detail!==mesh) return;
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.min(1800,source.naturalWidth);
-      canvas.height = Math.round(source.naturalHeight*canvas.width/source.naturalWidth);
-      const ctx = canvas.getContext('2d',{willReadFrequently:true})!;
-      ctx.drawImage(source,0,0,canvas.width,canvas.height);
-      const pixels = ctx.getImageData(0,0,canvas.width,canvas.height), rgba = pixels.data;
-      const ink = new THREE.Color(this.colors.text).convertLinearToSRGB();
-      const red = Math.round(ink.r*255), green = Math.round(ink.g*255), blue = Math.round(ink.b*255);
-      for (let i=0; i<rgba.length; i+=4) {
-        const strength = Math.max(0,Math.min(1,(255-Math.min(rgba[i],rgba[i+1],rgba[i+2])-42)/165));
-        rgba[i]=red; rgba[i+1]=green; rgba[i+2]=blue; rgba[i+3]=Math.round(strength*68);
+  private loadModel(floor:number) {
+    const entry=this.floors.get(floor)!;
+    if(entry.loaded || entry.loading) return;
+    entry.loading=true;
+    this.loader.load(import.meta.env.BASE_URL+`map/models/f${floor}.glb`, gltf=>{
+      if(this.disposed || this.floors.get(floor)!==entry) { disposeTree(gltf.scene); return; }
+      entry.solid.add(gltf.scene); entry.loaded=true; entry.loading=false;
+      gltf.scene.traverse(o=>{const m=o as THREE.Mesh;if(m.isMesh){m.castShadow=['wall','cap','stair','lift'].includes(m.name);m.receiveShadow=true;}});
+      this.themeModel(entry.solid); this.apply();
+    },undefined,()=>{
+      if(this.disposed)return;
+      entry.loading=false;
+      if(floor===this.active && this.mode!=='pdf') {
+        this.modelStatus.textContent='Модель не загрузилась. Переключись на PDF или открой карту заново.';
+        this.modelStatus.hidden=false;
       }
-      ctx.putImageData(pixels,0,0);
-      const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace; texture.anisotropy=8;
-      material.map=texture; material.needsUpdate=true;
-    };
-    return mesh;
+    });
+  }
+
+  private themeModel(root:THREE.Group) {
+    const dark=document.documentElement.dataset.scheme==='dark';
+    const shades:Record<string,number>={slab:0x23303a,floor:0x33434a,room:0x47565b,lecture:0x35655f,machine:0x3c576f,wc:0x435577,food:0x75604c,place:0x5c526d,wall:0x9daeb4,cap:0xc5d4d4,shadow:0x24363c,stair:0x577b7c,steel:0x9faeb5,lift:0x6c899c,rail:0xb8cbd0};
+    root.traverse(o=>{
+      const mesh=o as THREE.Mesh; if(!mesh.isMesh)return;
+      const m=mesh.material as THREE.MeshStandardMaterial;
+      if(!m.userData.lightColor)m.userData.lightColor=m.color.getHex();
+      m.color.setHex(dark ? shades[m.name] ?? m.userData.lightColor : m.userData.lightColor);
+    });
   }
 
   setView(mode:Mode, floor:number, lowest = floor) {
@@ -165,6 +144,7 @@ export class MapScene {
   private lowest = 6;
 
   private apply() {
+    this.renderer.shadowMap.needsUpdate=true;
     for (const [n, e] of this.floors) {
       const on = n === this.active;
       // 3D: the floor in focus is solid, floors under it are faint, floors above are hidden.
@@ -173,10 +153,14 @@ export class MapScene {
       const opacity = on ? 1 : n >= this.lowest ? .5 : .16;
       e.solid.traverse(o => { const m = (o as THREE.Mesh).material as THREE.Material|undefined; if (!m) return; m.transparent = !on || m.type === 'LineBasicMaterial'; m.opacity = on ? (m.type === 'LineBasicMaterial' ? .8 : 1) : opacity; m.depthWrite = on; m.needsUpdate = true; });
       if (on && this.mode === 'pdf') this.image(n);
-      if (on && this.mode !== 'pdf') this.detail(n);
+      if (e.group.visible && this.mode !== 'pdf') this.loadModel(n);
       if (e.image) e.image.visible = on && this.mode === 'pdf';
-      if (e.detail) e.detail.visible = on && this.mode !== 'pdf';
+
     }
+    const current=this.floors.get(this.active)!;
+    this.modelStatus.hidden=this.mode==='pdf'||current.loaded;
+    if(!this.modelStatus.hidden)this.modelStatus.textContent='Загружаем объёмную модель…';
+    this.host.dataset.modelReady=String(current.loaded);
     this.applyDynamic();
     const top = this.mode !== '3d';
     this.camera = top ? this.ortho : this.persp;
@@ -188,18 +172,19 @@ export class MapScene {
     this.controls.minZoom = 0.05; this.controls.maxZoom = 14;
   }
 
-  private frameFloor(focus?:{x:number; y:number}) {
+  private frameFloor(focus?:{x:number; y:number}, overview=false) {
     const f = (FLOORS as FloorData[]).find(q => q.floor === this.active)!;
     const [x0, y0, x1, y1] = bounds(f), y = level(this.active);
     // Default view: the middle of the rooms (the U-shaped floors have an empty courtyard in the centre).
     const midY = f.rooms.reduce((a, r) => a + r.y, 0) / Math.max(1, f.rooms.length);
+    if(!focus && !overview && this.host.clientWidth<600 && f.floor>=5) focus={x:980,y:580};
     const target = focus ? new THREE.Vector3(px(focus.x), y, pz(focus.y)) : new THREE.Vector3(px((x0+x1)/2), y, pz(f.rooms.length > 20 ? midY : (y0+y1)/2));
     const {clientWidth:w, clientHeight:h} = this.host;
     if (this.mode === '3d') {
       // Fit the whole floor width (or a neighbourhood of the focus) into the view, seen from the south-east above.
-      const span = focus ? 380 : (x1-x0)*1.25, hfov = 2*Math.atan(Math.tan(THREE.MathUtils.degToRad(this.persp.fov/2))*this.persp.aspect);
+      const span = focus ? (this.manualView ? 280 : 620) : (x1-x0)*1.12, hfov = 2*Math.atan(Math.tan(THREE.MathUtils.degToRad(this.persp.fov/2))*this.persp.aspect);
       const dist = Math.min(7000, span/2/Math.tan(hfov/2));
-      this.persp.position.copy(target).add(new THREE.Vector3(-0.1, 1.05, 0.52).normalize().multiplyScalar(dist));
+      this.persp.position.copy(target).add(new THREE.Vector3(-0.22, 1.05, 0.72).normalize().multiplyScalar(dist));
     } else {
       // Start with the entire floor visible; search or a tap zooms into a room.
       this.ortho.zoom = focus ? w/360 : Math.min(w/((x1-x0)*1.08), h/((y1-y0)*1.18));
@@ -227,7 +212,7 @@ export class MapScene {
     this.controls.update();
   }
 
-  reset() { this.manualView=false; this.frameFloor(); }
+  reset() { this.manualView=true; this.frameFloor(undefined,true); }
 
   setRoute(legs:Leg[], marks:Mark[]) {
     this.marks = marks;
@@ -237,9 +222,9 @@ export class MapScene {
       const r = m;
       const color = m.tone === 'to' ? this.colors.now : new THREE.Color(this.colors.text).getHex();
       if (r?.box) {
-        const [x0, y0, x1, y1] = r.box, g = new THREE.BoxGeometry(x1-x0+2, ROOM_H+2, y1-y0+2);
+        const [x0, y0, x1, y1] = r.box, g = new THREE.BoxGeometry(x1-x0-2, 1, y1-y0-2);
         const box = new THREE.Mesh(g, new THREE.MeshBasicMaterial({color, transparent:true, opacity:.28, depthWrite:false}));
-        box.position.set(px((x0+x1)/2), level(m.floor)+ROOM_H/2, pz((y0+y1)/2)); box.userData.floor = m.floor; this.dynamic.add(box);
+        box.position.set(px((x0+x1)/2), level(m.floor)+1.6, pz((y0+y1)/2)); box.userData.floor = m.floor; this.dynamic.add(box);
         const edges = new THREE.LineSegments(new THREE.EdgesGeometry(g), new THREE.LineBasicMaterial({color})); edges.position.copy(box.position); edges.userData.floor = m.floor; this.dynamic.add(edges);
       }
       const pin = new THREE.Group();
@@ -332,7 +317,9 @@ export class MapScene {
     ].sort((a,b)=>b.priority-a.priority);
     for (const item of labels) {
       const p = point(item.x,item.y); if (!p.visible) continue;
-      const edge = point(item.box?.[2] ?? item.x+50,item.y), roomWidth = Math.abs(edge.x-p.x)*2;
+      const b=item.box;
+      const corners=b ? [point(b[0],b[1]),point(b[2],b[1]),point(b[2],b[3]),point(b[0],b[3])] : [point(item.x-25,item.y),point(item.x+25,item.y)];
+      const roomWidth=Math.max(...corners.map(q=>q.x))-Math.min(...corners.map(q=>q.x));
       const important = selected.has(`${item.x}:${item.y}`);
       ctx.font = `${important?'800':'700'} 12px system-ui, sans-serif`;
       const textWidth = ctx.measureText(item.text).width, pillWidth = textWidth+11;
@@ -351,12 +338,12 @@ export class MapScene {
     }
   }
 
-  retheme() { this.build(); this.frameFloor(); }
+  retheme() { this.colors=palette(); for(const e of this.floors.values())this.themeModel(e.solid); }
 
   dispose() {
     this.disposed = true; cancelAnimationFrame(this.frame); this.observer.disconnect(); this.controls.dispose();
     disposeTree(this.scene);
-    this.renderer.dispose(); this.renderer.domElement.remove(); this.labelCanvas.remove();
+    this.renderer.dispose(); this.renderer.domElement.remove(); this.labelCanvas.remove(); this.modelStatus.remove();
   }
 }
 

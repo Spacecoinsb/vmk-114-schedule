@@ -28,7 +28,7 @@ function SceneView({mode, floor, lowest, legs, marks, focus, onPick}:{mode:Mode;
   // Without WebGL the original floor plan is still available.
   if (failed) { const f = FLOORS.find(q => q.floor === floor)!; return <div className="scene-view fallback"><img src={import.meta.env.BASE_URL + f.image} alt={`План ${floor} этажа`}/><p className="scene-hint">Интерактивная карта недоступна — показан исходный план</p></div>; }
   return <div className="scene-view" ref={host}>
-    <div className="map-orientation"><strong>{floor} этаж</strong><span>Север ← · → Юг</span></div>
+    <div className="map-orientation"><strong>{floor} этаж</strong><span>{mode==='3d'?'Объёмная модель':mode==='pdf'?'Исходный план':'Север ← · → Юг'}</span></div>
     <div className="map-zoom" role="group" aria-label="Масштаб карты">
       <button aria-label="Приблизить карту" title="Приблизить" onClick={()=>scene.current?.zoom(1.6)}><Plus size={18}/></button>
       <button aria-label="Отдалить карту" title="Отдалить" onClick={()=>scene.current?.zoom(1/1.6)}><Minus size={18}/></button>
@@ -45,7 +45,7 @@ function PointChip({label, point, onClear}:{label:string; point:Point|null; onCl
 const area = (p:Point) => p.box ? (p.box[2]-p.box[0])*(p.box[3]-p.box[1]) : 1e9;
 
 export function CampusMap({target, fromHint, children}:{target:string|null; fromHint:string|null; children?:ReactNode}) {
-  const [floor, setFloor] = useState(6), [mode, setMode] = useState<Mode>('schema');
+  const [floor, setFloor] = useState(6), [mode, setMode] = useState<Mode>('3d');
   const [query, setQuery] = useState(''), [selected, setSelected] = useState<string|null>(null);
   const [fromKey, setFrom] = useState<string|null>(null), [toKey, setTo] = useState<string|null>(null), [special, setSpecial] = useState<Route|null>(null);
   const results = useMemo(() => search(query) as Point[], [query]);

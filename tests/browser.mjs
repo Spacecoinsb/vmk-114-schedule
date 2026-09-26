@@ -138,6 +138,7 @@ try {
   await page.getByRole('option',{name:/Столовая «Диетка»/}).click();
   assert(await page.getByRole('button',{name:'Показать весь этаж'}).isVisible());
   assert(await page.locator('canvas.map-label-layer').isVisible(),'room labels are rendered above the model');
+  await page.locator('.scene-view[data-model-ready="true"]').waitFor();
   for(const mode of ['3D','Схема']) {
     await page.getByRole('button',{name:mode,exact:true}).click();
     assert(await page.locator('.map-card').getByText('Столовая «Диетка»').isVisible(),'selected place survives mode changes');
@@ -209,6 +210,7 @@ try {
   assert.equal(await page.getByRole('dialog',{name:'PDF расписания'}).count(),0);
   assert(offlinePdf.ok && offlinePdf.size>1000);
   assert(await page.evaluate(async()=>(await fetch('map/f6.jpg')).ok),'floor plans work offline');
+  assert(await page.evaluate(async()=>{for(const n of [1,2,5,6,7]){const r=await fetch(`map/models/f${n}.glb`);if(!r.ok || (await r.arrayBuffer()).byteLength<1000)return false;}return true;}),'all 3D floor models work offline');
   await page.getByRole('button',{name:'Карта',exact:true}).click();
   await page.getByLabel('Поиск на карте').waitFor();
   await page.getByRole('button',{name:'Расписание',exact:true}).click();
